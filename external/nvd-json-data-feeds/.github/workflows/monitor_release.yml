@@ -1,0 +1,25 @@
+name: monitor-release
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch: {}
+jobs:
+  monitor-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          git fetch --prune --unshallow --tags
+          latest_release=$(git describe --abbrev=0 --tags | grep -oP "\d+\.\d+\.\d+")
+          cur=$(date +"%Y.%m.%d")
+          if [ "$latest_release" != "$cur" ]; then
+            >&2 echo "Error: Daily release failed!"
+            exit 100
+          fi
+          exit 0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          BRANCH_NAME: ${{ github.ref_name }}
