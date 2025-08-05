@@ -3,23 +3,23 @@ export THREADED=1   # Enable multithreading
 export SHORT_PATH=0 # Only relative paths are shown in the log
 export HTML=0       # Do not generate reports in HTML format
 export DISABLE_DOTS=1  # No dots in terminal
- ​
+
 # multiple sbom not only optimisations
 SBOM_MINIMAL=0
- ​
+
 # if no deep extraction is needed it can be disabled here - sometimes useful for
 # non Linux stuff like sources or Windows exe (could be also configured via -q parameter)
 export DISABLE_DEEP=0   # Enable deep fetch
-​
+
 # VEX metrics (check for KEV, Exploits, EPSS) -> F17 module is not enabled by default
 export VEX_METRICS=1
-​
+
 # QEMULATION - for user-mode emulation to generate an optimised SBOM
 export QEMULATION=1 #Enable QEMU user mode emulation
- ​
+
 export SELECT_MODULES+=( "S03" "S06" "S08" "S09" "S24" "F10" "F15" "F17" )
 export MODULE_BLACKLIST+=( "S115" "S116" "S12" "S13" "S14" )
- ​
+
 # we can enable/disable the s08 submodules with the following array configuration -> just comment the submodule 
 # that should not be used
 export S08_MODULES_ARR=()
@@ -44,7 +44,7 @@ S08_MODULES_ARR+=( "S08_submodule_perl_cpan_parser" )
 S08_MODULES_ARR+=( "S08_submodule_php_composer_lock" )
 S08_MODULES_ARR+=( "S08_submodule_python_pipfile_lock" )
 # S08_MODULES_ARR+=( "S08_submodule_apk_pkg_mgmt_parser" )
- ​
+
 # we output the profile only at the beginning - outside the docker environment
 if [[ $IN_DOCKER -ne 1 ]] ; then
   print_output "$(indent "$(orange "Adds ANSI color codes to log")")" "no_log"
