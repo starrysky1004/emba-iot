@@ -20,7 +20,7 @@ export QEMULATION=1 #Enable QEMU user mode emulation
 export SELECT_MODULES+=( "S03" "S06" "S08" "S09" "S24" "F10" "F15" "F17" )
 export MODULE_BLACKLIST+=( "S115" "S116" "S12" "S13" "S14" )
 
-# we can enable/disable the s08 submodules with the following array configuration -> just comment the submodule 
+# we can enable/disable the s08 submodules with the following array configuration -> just comment the submodule
 # that should not be used
 export S08_MODULES_ARR=()
 S08_MODULES_ARR=( "S08_submodule_debian_pkg_mgmt_parser" )
@@ -33,8 +33,8 @@ S08_MODULES_ARR+=( "S08_submodule_bsd_package_parser" )
 S08_MODULES_ARR+=( "S08_submodule_python_pip_package_mgmt_parser" )
 S08_MODULES_ARR+=( "S08_submodule_python_requirements_parser" )
 S08_MODULES_ARR+=( "S08_submodule_python_poetry_lock_parser" )
-S08_MODULES_ARR+=( "S08_submodule_java_archives_parser" ) 
-# S08_MODULES_ARR+=( "S08_submodule_ruby_gem_archive_parser" ) 
+S08_MODULES_ARR+=( "S08_submodule_java_archives_parser" )
+# S08_MODULES_ARR+=( "S08_submodule_ruby_gem_archive_parser" )
 # S08_MODULES_ARR+=( "S08_submodule_alpine_apk_package_parser" )
 S08_MODULES_ARR+=( "S08_submodule_windows_exifparser" )
 S08_MODULES_ARR+=( "S08_submodule_rust_cargo_lock_parser" )
@@ -51,15 +51,15 @@ if [[ $IN_DOCKER -ne 1 ]] ; then
   print_output "$(indent "$(orange "Activate multi threading")")" "no_log"
   print_output "$(indent "$(orange "Prints only relative paths")")" "no_log"
   print_output "$(indent "$(orange "Activates web report creation in log path")")" "no_log"
-  if [[ "$USE_DOCKER" -ne 1 ]]; then
-    print_output "$(indent "$(orange "Enables automated qemu emulation tests (WARNING this module could harm your host!)")")" "no_log"
-  else
-    print_output "$(indent "$(orange "Enables automated qemu emulation tests")")" "no_log"
-  fi
+  if [[ "$USE_DOCKER" -ne 1 ]]; then
+    print_output "$(indent "$(orange "Enables automated qemu emulation tests (WARNING this module could harm your host!)")")" "no_log"
+  else
+    print_output "$(indent "$(orange "Enables automated qemu emulation tests")")" "no_log"
+  fi
   print_output "$(indent "$(orange "Runs EMBA in docker container")")" "no_log"
   print_output "$(indent "$(orange "Enabled EMBA module via profile")")" "no_log"
-  for MODULE_ in "${SELECT_MODULES[@]}"; do
-    print_output "$(indent "$(orange "Enabled module: $MODULE_")")" "no_log"
-  done
-  export USE_DOCKER=1
+  for MODULE_ in "${SELECT_MODULES[@]}"; do
+    print_output "$(indent "$(orange "Enabled module: $MODULE_")")" "no_log"
+  done
+  export USE_DOCKER=1
 fi
