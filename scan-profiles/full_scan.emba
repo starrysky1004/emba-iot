@@ -24,7 +24,7 @@ export SELECT_MODULES+=( "S03" "S06" "S08" "S09" )                 # Basic Infor
 export SELECT_MODULES+=( "S21" "S22" "S27" )                       # Check scripts (shell / python / php / perl)
 export SELECT_MODULES+=( "S24" "S25" "S26" )                       # Extract kernel version and find related CVE and verifier
 export SELECT_MODULES+=( "S17" )                                   # cwe_checker
-export SELECT_MODULES+=( "S106"  "S107" "S108""S109" )             # Search and beruteforcing hashed passwords
+export SELECT_MODULES+=( "S106"  "S107" "S108" "S109" )             # Search and beruteforcing hashed passwords
 export SELECT_MODULES+=( "F10" "F15" "F17" )                       # Final modules
 
 # we can enable/disable the s08 submodules with the following array configuration -> just comment the submodule
