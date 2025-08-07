@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-CVE信息提取脚本
-从f17_cve_bin_tool文件夹中的CSV文件提取组件漏洞信息，生成JSON文件
-跳过包含kernel的文件
+CVE Information Extraction Script
+Extract component vulnerability information from CSV files in f17_cve_bin_tool folder, generate JSON file
+Skip files containing kernel
 """
 
 import os
@@ -16,13 +16,13 @@ from typing import Dict, List, Any
 
 def parse_csv_file(csv_file_path: str) -> List[Dict[str, Any]]:
     """
-    解析CSV文件并提取CVE信息
+    Parse CSV file and extract CVE information
     
     Args:
-        csv_file_path: CSV文件路径
+        csv_file_path: CSV file path
         
     Returns:
-        包含CVE信息的字典列表
+        List of dictionaries containing CVE information
     """
     vulnerabilities = []
     
@@ -31,12 +31,10 @@ def parse_csv_file(csv_file_path: str) -> List[Dict[str, Any]]:
             reader = csv.DictReader(file)
             
             for row in reader:
-                # 清理数据，移除空值和vendor字段
                 cleaned_row = {k: v.strip() if isinstance(v, str) else v 
                              for k, v in row.items() 
                              if v and v.strip() and k != 'vendor'}
                 
-                # 转换score为数值类型
                 if 'score' in cleaned_row:
                     try:
                         cleaned_row['score'] = float(cleaned_row['score'])
@@ -46,7 +44,7 @@ def parse_csv_file(csv_file_path: str) -> List[Dict[str, Any]]:
                 vulnerabilities.append(cleaned_row)
                 
     except Exception as e:
-        print(f"解析文件 {csv_file_path} 时出错: {e}")
+        print(f"Error parsing file {csv_file_path}: {e}")
         return []
     
     return vulnerabilities
@@ -54,19 +52,16 @@ def parse_csv_file(csv_file_path: str) -> List[Dict[str, Any]]:
 
 def extract_component_info_from_filename(filename: str) -> Dict[str, str]:
     """
-    从文件名中提取组件信息
+    Extract component information from filename
     
     Args:
-        filename: CSV文件名
+        filename: CSV filename
         
     Returns:
-        包含组件信息的字典
+        Dictionary containing component information
     """
-    # 移除.csv扩展名
     name_without_ext = filename.replace('.csv', '')
     
-    # 尝试从文件名中提取组件信息
-    # 文件名格式通常是: uuid_component_version.csv
     parts = name_without_ext.split('_')
     
     component_info = {
@@ -74,11 +69,8 @@ def extract_component_info_from_filename(filename: str) -> Dict[str, str]:
         'version': ''
     }
     
-    # 尝试提取组件名和版本
     if len(parts) >= 3:
-        # 假设最后一部分是版本号
         component_info['version'] = parts[-1]
-        # 中间部分可能是组件名
         component_info['component_name'] = '_'.join(parts[1:-1])
     elif len(parts) == 2:
         component_info['component_name'] = parts[1]
@@ -88,18 +80,17 @@ def extract_component_info_from_filename(filename: str) -> Dict[str, str]:
 
 def process_csv_files(csv_dir: str) -> Dict[str, Any]:
     """
-    处理CSV文件并返回所有数据
+    Process CSV files and return all data
     
     Args:
-        csv_dir: CSV文件目录
+        csv_dir: CSV file directory
         
     Returns:
-        包含所有组件漏洞信息的字典
+        Dictionary containing all component vulnerability information
     """
-    # 查找所有CSV文件
     csv_files = glob.glob(os.path.join(csv_dir, "*.csv"))
     
-    print(f"找到 {len(csv_files)} 个CSV文件")
+    print(f"Found {len(csv_files)} CSV files")
     
     all_data = {
         'total_components': 0,
@@ -119,21 +110,17 @@ def process_csv_files(csv_dir: str) -> Dict[str, Any]:
     for csv_file in csv_files:
         filename = os.path.basename(csv_file)
         
-        # 跳过包含kernel的文件
         if 'kernel' in filename.lower():
             skipped_count += 1
             continue
         
-        # 提取组件信息
         component_info = extract_component_info_from_filename(filename)
         
-        # 解析CSV文件
         vulnerabilities = parse_csv_file(csv_file)
         
         if not vulnerabilities:
             continue
         
-        # 计算严重程度统计
         severity_counts = {
             'critical': len([v for v in vulnerabilities if v.get('severity', '').upper() == 'CRITICAL']),
             'high': len([v for v in vulnerabilities if v.get('severity', '').upper() == 'HIGH']),
@@ -141,7 +128,6 @@ def process_csv_files(csv_dir: str) -> Dict[str, Any]:
             'low': len([v for v in vulnerabilities if v.get('severity', '').upper() == 'LOW'])
         }
         
-        # 创建组件数据
         component_data = {
             'component_name': component_info['component_name'],
             'version': component_info['version'],
@@ -153,7 +139,6 @@ def process_csv_files(csv_dir: str) -> Dict[str, Any]:
         all_data['components'].append(component_data)
         all_data['total_vulnerabilities'] += len(vulnerabilities)
         
-        # 累加严重程度统计
         for severity in ['critical', 'high', 'medium', 'low']:
             all_data['severity_summary'][severity] += severity_counts[severity]
         
@@ -161,29 +146,25 @@ def process_csv_files(csv_dir: str) -> Dict[str, Any]:
     
     all_data['total_components'] = len(all_data['components'])
     
-    # 按漏洞数量排序
     all_data['components'].sort(key=lambda x: x['total_vulnerabilities'], reverse=True)
-    
-    return all_data
     
     return all_data
 
 
 def main():
-    """主函数"""
+    """Main function"""
     import argparse
     import logging
     
-    # 解析命令行参数
-    parser = argparse.ArgumentParser(description='CVE信息提取脚本')
-    parser.add_argument('--input-prefix', default='../', help='输入文件路径前缀')
-    parser.add_argument('--output-prefix', default='../result/', help='输出文件路径前缀')
-    parser.add_argument('--log-prefix', default='../result/', help='日志文件路径前缀')
+    parser = argparse.ArgumentParser(description='CVE Information Extraction Script')
+    parser.add_argument('--input-prefix', default='../', help='Input file path prefix')
+    parser.add_argument('--output-prefix', default='../result/', help='Output file path prefix')
+    parser.add_argument('--log-prefix', default='../result/', help='Log file path prefix')
     
     args = parser.parse_args()
     
-    # 配置日志 - 使用独立的日志文件
     log_file = os.path.join(args.log_prefix, 'components_cve.log')
+    os.makedirs(os.path.dirname(log_file), exist_ok=True)
     logging.basicConfig(
         filename=log_file,
         level=logging.INFO,
@@ -192,34 +173,30 @@ def main():
         encoding='utf-8'
     )
     
-    # 设置路径
     csv_dir = f"{args.input_prefix}/f17_cve_bin_tool"
     output_file = f"{args.output_prefix}/components_cve.json"
     
-    logging.info("🔍 CVE信息提取脚本")
+    logging.info("CVE Information Extraction Script")
     logging.info("=" * 50)
-    logging.info(f"📁 CSV文件目录: {csv_dir}")
-    logging.info(f"📄 输出文件: {output_file}")
+    logging.info(f"CSV file directory: {csv_dir}")
+    logging.info(f"Output file: {output_file}")
     
-    # 检查CSV目录是否存在
     if not os.path.exists(csv_dir):
-        logging.error(f"❌ 错误: CSV目录不存在: {csv_dir}")
+        logging.error(f"Error: CSV directory not found: {csv_dir}")
         return
     
-    # 处理CSV文件
     all_data = process_csv_files(csv_dir)
     
-    # 写入JSON文件
     try:
         with open(output_file, 'w', encoding='utf-8') as json_file:
             json.dump(all_data, json_file, indent=2, ensure_ascii=False)
         
-        logging.info(f"✅ 已生成: {output_file}")
+        logging.info(f"Generated: {output_file}")
         
     except Exception as e:
-        logging.error(f"❌ 写入文件时出错: {e}")
+        logging.error(f"Error writing file: {e}")
     
-    logging.info("🎉 脚本执行完成!")
+    logging.info("Script execution completed!")
 
 
 if __name__ == "__main__":

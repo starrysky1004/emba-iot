@@ -201,6 +201,7 @@ run_modules() {
       print_output "[!] ERROR: Manual pre-checking module selection not supported" "no_log"
       print_output "[!] Hint: Remove -m p[0-9]+ parameter" "no_log"
       print_ln "no_log"
+      cleanup_firmware_log
       exit 1
     fi
 
@@ -344,7 +345,24 @@ run_modules() {
 
 main() {
   set -a
-  trap cleaner INT
+  
+  # Custom cleanup function for firmware_log
+  cleanup_firmware_log() {
+    if [[ -d "${INVOCATION_PATH}/firmware_log" ]]; then
+      print_output "[*] $(print_date) - Cleaning firmware_log directory" "no_log"
+      find "${INVOCATION_PATH}/firmware_log" -mindepth 1 -delete 2>/dev/null || true
+      print_output "[*] $(print_date) - firmware_log directory cleaned" "no_log"
+    fi
+  }
+  
+  # Enhanced signal handler that calls both cleaner and firmware_log cleanup
+  enhanced_cleaner() {
+    cleaner
+    cleanup_firmware_log
+  }
+  
+  # Set up signal handlers for cleanup
+  trap enhanced_cleaner INT TERM EXIT
 
   INVOCATION_PATH="$(dirname "${0}")"
 
@@ -364,6 +382,7 @@ main() {
     print_output "\\n""${ORANGE}""In order to be able to use EMBA, you have to specify at least a firmware (-f)." "no_log"
     print_output "If you don't set a log directory (-l), then ./logs will be used.""${NC}" "no_log"
     print_help
+    cleanup_firmware_log
     exit 1
   fi
 
@@ -378,11 +397,13 @@ main() {
     if [[ -z "${LOG_DIR}" ]]; then
       print_output "[-] ${RED}ERROR:${NC} RESCAN_SBOM mode requires an existing log directory specified with ${ORANGE}-l${NC} parameter" "no_log"
       print_output "[-] The log directory must be from a previous EMBA scan and contain an SBOM" "no_log"
+      cleanup_firmware_log
       exit 1
     fi
     if [[ ! -d "${LOG_DIR}" ]]; then
       print_output "[-] ${RED}ERROR:${NC} RESCAN_SBOM mode requires the log directory ${ORANGE}${LOG_DIR}${NC} to exist" "no_log"
       print_output "[-] Please specify a valid existing log directory from a previous EMBA scan" "no_log"
+      cleanup_firmware_log
       exit 1
     fi
     # Finally check for the EMBA SBOM json log file required by F17
@@ -390,6 +411,7 @@ main() {
       print_output "[-] ${RED}ERROR:${NC} RESCAN_SBOM mode requires an existing EMBA SBOM file" "no_log"
       print_output "[-] Missing SBOM file: ${ORANGE}${EMBA_SBOM_JSON}${NC}" "no_log"
       print_output "[-] Please ensure the log directory is from a complete EMBA scan with F15 SBOM generation" "no_log"
+      cleanup_firmware_log
       exit 1
     fi
   fi
@@ -446,6 +468,7 @@ main() {
     if [[ "${UPDATE}" -eq 1 ]]; then
       write_notification "EMBA starts with update"
       emba_updater
+      cleanup_firmware_log
       exit 0
     fi
 
@@ -474,6 +497,7 @@ main() {
         print_bar "no_log"
       else
         print_output "[!] $(print_date) - Profile ${PROFILE} not found." "no_log"
+        cleanup_firmware_log
         exit 1
       fi
     fi
@@ -594,6 +618,7 @@ main() {
     else
       print_output "[!] $(print_date) - Invalid firmware file" "no_log"
       print_help
+      cleanup_firmware_log
       exit 1
     fi
 
@@ -655,6 +680,7 @@ main() {
 
       if ! [[ -f "${KERNEL_CONFIG}" ]] ; then
         print_output "[-] $(print_date) - Invalid kernel configuration file: ${ORANGE}${KERNEL_CONFIG}${NC}" "no_log"
+        cleanup_firmware_log
         exit 1
       else
         if [[ ${IN_DOCKER} -eq 0 ]] ; then
@@ -664,6 +690,7 @@ main() {
             cp "${KERNEL_CONFIG}" "${LOG_DIR}"/kernel_config
           else
             print_output "[!] $(print_date) - Missing log directory" "no_log"
+            cleanup_firmware_log
             exit 1
           fi
         fi
@@ -694,6 +721,7 @@ main() {
         print_output "[!] $(print_date) - Using EMBA with docker-compose requires root permissions" "no_log"
         print_output "$(indent "Run EMBA with root permissions or add your user to docker group")" "no_log"
         print_output "$(indent "e.g., sudo usermod -aG docker [non-root user]")" "no_log"
+        cleanup_firmware_log
         exit 1
       fi
     fi
@@ -732,6 +760,7 @@ main() {
       fi
       if [[ "${lCNT_DOCK}" -ge 10 ]]; then
         print_output "[-] $(print_date) - EMBA docker environment not ready!" "no_log"
+        cleanup_firmware_log
         exit 1
       fi
     done
@@ -822,16 +851,19 @@ main() {
           print_output "[*] $(print_date) - Access the web-report with ${ORANGE}firefox $(abs_path "${HTML_PATH}/index.html")${NC}" "main"
         fi
         cleaner 0
+        cleanup_firmware_log
         print_output "[!] $(print_date) - Test ended on ""$(print_date)"" and took about ""$(show_runtime)"" \\n" "main"
       else
         # we do not need the log dir from dependency checker
         [[ -d "${LOG_DIR}" ]] && rm -rf "${LOG_DIR}"
         print_output "[!] $(print_date) - Test ended on ""$(print_date)"" and took about ""$(show_runtime)"" \\n" "no_log"
+        cleanup_firmware_log
       fi
       exit 0
     else
       print_output "[-] $(print_date) - Test ended on ""$(print_date)"" and EMBA failed in docker mode!" "main"
       cleaner 0
+      cleanup_firmware_log
       write_notification "EMBA failed analysis in default mode"
       exit 1
     fi
@@ -858,6 +890,7 @@ main() {
       run_modules "Q" "${THREADED}" "0"
       [[ "${THREADED}" -eq 1 ]] && wait_for_pid "${WAIT_PIDS[@]}"
       print_output "[*] $(print_date) - Quest container finished" "main"
+      cleanup_firmware_log
       exit 0
     elif [[ "${USE_DOCKER}" -eq 0 && "${IN_DOCKER}" -eq 0 ]] ;  then
       # currently we do not support the Quest containers in dev mode
@@ -1080,6 +1113,7 @@ main() {
   else
     print_output "[!] $(print_date) - No extracted firmware found" "no_log"
     print_output "$(indent "Try using binwalk or something else to extract the firmware")"
+    cleanup_firmware_log
     exit 1
   fi
 
@@ -1096,7 +1130,9 @@ main() {
   # we need to change the permissions of the LOG_DIR to the orig. user from the host
   [[ "${IN_DOCKER}" -eq 1 ]] && restore_permissions
   cleaner 0
+  cleanup_firmware_log
   exit 0
 }
 
 main "$@"
+

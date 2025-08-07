@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-内核信息提取器
-从s24、s25、s26模块输出文件中提取有效信息
+Kernel Information Extractor
+Extract valid information from s24, s25, s26 module output files
 """
 
 import re
 import json
 import sys
 import os
-# from typing import Dict, List, Any  # 注释掉类型提示以兼容旧版本Python
 
 class KernelInfoExtractor:
     def __init__(self):
         self.kernel_info = {
             "summary": {
-                "exploitable_vulnerabilities": 0,
+                "total_vulnerabilities": 0,
+                "verified_vulnerabilities": 0,
                 "severity_distribution": {
                     "Critical": 0,
                     "High": 0,
@@ -35,7 +35,6 @@ class KernelInfoExtractor:
     
     def extract_s24_info(self, file_path):
         """Extract s24 kernel binary identification information"""
-        # 由于不需要kernel_identification，此方法保留但不使用
         pass
     
     def extract_s25_info(self, file_path):
@@ -50,15 +49,12 @@ class KernelInfoExtractor:
             with open(file_path, 'r') as f:
                 content = f.read()
             
-            # 清理ANSI代码
             content = self.clean_ansi_codes(content)
             
-            # 提取内核版本
             version_match = re.search(r'Kernel version:\s*(\d+\.\d+\.\d+)', content)
             if version_match:
                 info["kernel_version"] = version_match.group(1)
             
-            # 提取内核模块详细信息
             module_pattern = r'Found kernel module ([^(]+) \([^)]+\) - License ([^-]+) - (.+)'
             modules = re.findall(module_pattern, content)
             for module in modules:
@@ -68,9 +64,6 @@ class KernelInfoExtractor:
                     "status": self.clean_ansi_codes(module[2].strip())
                 })
             
-            # 移除exploits提取部分
-            
-            # 提取统计信息
             stats_pattern = r'Statistics:(\d+\.\d+\.\d+)'
             stats_match = re.search(stats_pattern, content)
             if stats_match:
@@ -95,38 +88,63 @@ class KernelInfoExtractor:
             "vulnerabilities": []
         }
         
+        # Get the directory path to look for CSV file
+        file_dir = os.path.dirname(file_path)
+        csv_file = None
+        
+        # Find the CSV file in the same directory
+        if os.path.exists(file_dir):
+            for filename in os.listdir(file_dir):
+                if filename.startswith("cve_results_kernel_") and filename.endswith(".csv"):
+                    csv_file = os.path.join(file_dir, filename)
+                    break
+        
+        # Read verification status from CSV file
+        verified_cves = set()
+        if csv_file and os.path.exists(csv_file):
+            try:
+                with open(csv_file, 'r') as f:
+                    for line in f:
+                        if line.startswith("Kernel version"):
+                            continue  # Skip header
+                        parts = line.strip().split(';')
+                        if len(parts) >= 7:
+                            cve_id = parts[2]
+                            verified_symbols = parts[5]
+                            verified_compile = parts[6]
+                            # If either symbols or compile verification is successful (1), mark as verified
+                            if verified_symbols == "1" or verified_compile == "1":
+                                verified_cves.add(cve_id)
+            except Exception as e:
+                print("Error reading CSV file: " + str(e))
+        
         try:
             with open(file_path, 'r') as f:
                 content = f.read()
             
-            # 清理ANSI代码
             content = self.clean_ansi_codes(content)
             
-            # 提取内核版本
             version_match = re.search(r'Identified kernel version: (\d+\.\d+\.\d+)', content)
             if version_match:
                 info["kernel_version"] = version_match.group(1)
             
-            # 提取架构信息
             arch_match = re.search(r'Identified kernel architecture (\w+)', content)
             if arch_match:
                 info["architecture"] = arch_match.group(1)
             
-            # 提取漏洞信息 - 修复正则表达式以匹配实际格式
             vuln_pattern = r'([^:]+)\s*:\s*([^:]+)\s*:\s*(CVE-\d{4}-\d+)\s*:\s*([^:]+)\s*:\s*([^:]+)\s*:\s*([^:]+)\s*:\s*([^\n]+)'
             vulnerabilities = re.findall(vuln_pattern, content)
             
             for vuln in vulnerabilities:
-                # 跳过不是漏洞信息的行
                 if not vuln[2].startswith('CVE-'):
                     continue
                 
                 exploit_info = self.clean_ansi_codes(vuln[6].strip())
+                cve_id = self.clean_ansi_codes(vuln[2].strip())
                 
                 severity = "Unknown"
                 cvss_score = self.clean_ansi_codes(vuln[3].strip())
                 
-                # 根据CVSS分数判断严重程度
                 try:
                     score = float(cvss_score.split()[0])
                     if score >= 9.0:
@@ -140,19 +158,19 @@ class KernelInfoExtractor:
                 except:
                     pass
                 
-                # 跳过exploit_info为"No exploit available"的漏洞
-                if "no exploit available" in exploit_info.lower():
-                    continue
+                # Check if this CVE is verified
+                verified = cve_id in verified_cves
                     
                 vuln_data = {
                     "binary_name": self.clean_ansi_codes(vuln[0].strip()),
                     "version": self.clean_ansi_codes(vuln[1].strip()),
-                    "cve_id": self.clean_ansi_codes(vuln[2].strip()),
+                    "cve_id": cve_id,
                     "cvss_score": cvss_score,
                     "severity": severity,
                     "epss": self.clean_ansi_codes(vuln[4].strip()),
                     "source": self.clean_ansi_codes(vuln[5].strip()),
-                    "exploit_info": exploit_info
+                    "exploit_info": exploit_info,
+                    "verified": verified
                 }
                 
                 info["vulnerabilities"].append(vuln_data)
@@ -163,25 +181,26 @@ class KernelInfoExtractor:
         return info
     
     def update_summary(self, vuln_info):
-        """更新汇总信息"""
+        """Update summary information"""
         if not vuln_info:
             return
             
-        # 获取可利用漏洞
-        exploitable_vulns = vuln_info.get("vulnerabilities", [])
+        all_vulns = vuln_info.get("vulnerabilities", [])
         
-        # 更新汇总统计
-        self.kernel_info["summary"]["exploitable_vulnerabilities"] = len(exploitable_vulns)
+        self.kernel_info["summary"]["total_vulnerabilities"] = len(all_vulns)
         
-        # 统计严重程度分布
+        # Count verified vulnerabilities
+        verified_count = sum(1 for vuln in all_vulns if vuln.get("verified", False))
+        self.kernel_info["summary"]["verified_vulnerabilities"] = verified_count
+        
         severity_dist = self.kernel_info["summary"]["severity_distribution"]
-        for vuln in exploitable_vulns:
+        for vuln in all_vulns:
             severity = vuln.get("severity", "Unknown")
             if severity in severity_dist:
                 severity_dist[severity] += 1
     
     def process_files(self, input_prefix="../"):
-        """处理所有文件"""
+        """Process all files"""
         files = {
             "s24": f"{input_prefix}/s24_kernel_bin_identifier.txt",
             "s25": f"{input_prefix}/s25_kernel_check.txt", 
@@ -192,7 +211,6 @@ class KernelInfoExtractor:
             if os.path.exists(filename):
                 print("Processing " + filename + "...")
                 if module == "s24":
-                    # 跳过s24处理，因为不需要kernel_identification
                     pass
                 elif module == "s25":
                     self.kernel_info["kernel_analysis"] = self.extract_s25_info(filename)
@@ -201,17 +219,37 @@ class KernelInfoExtractor:
                     self.kernel_info["vulnerabilities"] = vuln_info["vulnerabilities"]
                     self.update_summary(vuln_info)
             else:
-                print("Warning: File " + filename + " does not exist")
+                # For S26, try to find alternative files
+                if module == "s26":
+                    # Look for kernel verification detailed log
+                    alt_files = [
+                        f"{input_prefix}/kernel_verification_*_detailed.log",
+                        f"{input_prefix}/s26_kernel_vuln_verifier/kernel_verification_*_detailed.log"
+                    ]
+                    
+                    import glob
+                    for pattern in alt_files:
+                        matching_files = glob.glob(pattern)
+                        if matching_files:
+                            filename = matching_files[0]
+                            print("Processing " + filename + "...")
+                            vuln_info = self.extract_s26_info(filename)
+                            self.kernel_info["vulnerabilities"] = vuln_info["vulnerabilities"]
+                            self.update_summary(vuln_info)
+                            break
+                    else:
+                        print("Warning: No S26 kernel verification files found")
+                else:
+                    print("Warning: File " + filename + " does not exist")
     
     def print_summary(self):
         """Print summary information to log file"""
         import logging
         
-        # 获取当前日志配置
         logger = logging.getLogger()
         if not logger.handlers:
             logging.basicConfig(
-                filename='../result/scripts/kernel.log',
+                filename='../result/scripts.log',
                 level=logging.INFO,
                 format='%(asctime)s - %(message)s',
                 filemode='a',
@@ -219,29 +257,27 @@ class KernelInfoExtractor:
             )
         
         logging.info("\n" + "="*60)
-        logging.info("🐧 Kernel Security Analysis Summary")
+        logging.info("Kernel Security Analysis Summary")
         logging.info("="*60)
         
-        # Summary information
         summary = self.kernel_info["summary"]
-        logging.info("🔍 Exploitable Vulnerabilities: " + str(summary["exploitable_vulnerabilities"]))
+        logging.info("Total Vulnerabilities: " + str(summary["total_vulnerabilities"]))
+        logging.info("Verified Vulnerabilities: " + str(summary["verified_vulnerabilities"]))
         
-        # Severity distribution
         severity_dist = summary["severity_distribution"]
         if any(severity_dist.values()):
-            logging.info("📊 Severity Distribution:")
+            logging.info("Severity Distribution:")
             logging.info("  - Critical: " + str(severity_dist['Critical']))
             logging.info("  - High: " + str(severity_dist['High']))
             logging.info("  - Medium: " + str(severity_dist['Medium']))
             logging.info("  - Low: " + str(severity_dist['Low']))
             logging.info("  - Unknown: " + str(severity_dist['Unknown']))
         
-        # Kernel analysis information
         kernel_analysis = self.kernel_info["kernel_analysis"]
         if kernel_analysis.get("kernel_version"):
-            logging.info("🔧 Kernel Version: " + kernel_analysis['kernel_version'])
+            logging.info("Kernel Version: " + kernel_analysis['kernel_version'])
         if kernel_analysis.get("kernel_modules"):
-            logging.info("📦 Kernel Modules Found: " + str(len(kernel_analysis['kernel_modules'])))
+            logging.info("Kernel Modules Found: " + str(len(kernel_analysis['kernel_modules'])))
         
         logging.info("="*60)
     
@@ -251,29 +287,27 @@ class KernelInfoExtractor:
         try:
             with open(output_file, 'w', encoding='utf-8') as f:
                 json.dump(self.kernel_info, f, indent=2)
-            logging.info("✅ Results saved to: " + output_file)
+            logging.info("Results saved to: " + output_file)
         except Exception as e:
-            logging.error("❌ Error saving JSON file: " + str(e))
+            logging.error("Error saving JSON file: " + str(e))
 
 def main():
     import argparse
     import logging
     
-    # 解析命令行参数
     parser = argparse.ArgumentParser(description='Kernel Information Extractor')
-    parser.add_argument('--input-prefix', default='../', help='输入文件路径前缀')
-    parser.add_argument('--output-prefix', default='../result/', help='输出文件路径前缀')
-    parser.add_argument('--log-prefix', default='../result/', help='日志文件路径前缀')
+    parser.add_argument('--input-prefix', default='../', help='Input file path prefix')
+    parser.add_argument('--output-prefix', default='../result/', help='Output file path prefix')
+    parser.add_argument('--log-prefix', default='../result/', help='Log file path prefix')
     
     args = parser.parse_args()
     
-    # 设置具体路径
     input_prefix = args.input_prefix
     output_prefix = args.output_prefix
     log_prefix = args.log_prefix
     
-    # 配置日志 - 使用独立的日志文件
     log_file = os.path.join(log_prefix, 'kernel.log')
+    os.makedirs(os.path.dirname(log_file), exist_ok=True)
     logging.basicConfig(
         filename=log_file,
         level=logging.INFO,
@@ -282,14 +316,15 @@ def main():
         encoding='utf-8'
     )
     
-    logging.info("🐧 Kernel Information Extractor Starting...")
+    logging.info("Kernel Information Extractor Starting...")
     
     extractor = KernelInfoExtractor()
     extractor.process_files(input_prefix)
     extractor.print_summary()
     extractor.save_json(f'{output_prefix}/kernel.json')
     
-    logging.info("🎉 Processing Complete!")
+    logging.info("Processing Complete!")
 
 if __name__ == "__main__":
     main()
+

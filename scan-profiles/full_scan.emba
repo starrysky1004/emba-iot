@@ -7,7 +7,7 @@ export DISABLE_DOTS=1  # No dots in terminal
 export YARA=1       # Enable YARA
 
 # multiple sbom not only optimisations
-SBOM_MINIMAL=0
+export SBOM_MINIMAL=0
 
 # if no deep extraction is needed it can be disabled here - sometimes useful for
 # non Linux stuff like sources or Windows exe (could be also configured via -q parameter)

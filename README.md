@@ -1,6 +1,6 @@
 # EMBA-IOT
 
-该项目改编自[EMBA](https://github.com/e-m-b-a/emba)，用于检测固件的供应链安全，目前支持对未加密固件及部分厂商加密固件的解包、扫描固件组件、检测组件关联cve、检测固件中的二进制程序与脚本文件的安全漏洞、识别固件包含的许可证，以及识别密钥字符并对部分识别到的密码进行爆破，具体功能介绍见下文。后续将在加密固件解包和静态分析方面进行进一步优化。
+该项目改编自 [EMBA](https://github.com/e-m-b-a/emba)，用于检测固件的供应链安全，目前支持对未加密固件及部分厂商加密固件的解包、扫描固件组件、检测组件关联 cve、检测固件中的二进制程序与脚本文件的安全漏洞、识别固件包含的许可证，以及识别密钥字符并对部分识别到的密码进行爆破，具体功能介绍见下文。后续将在加密固件解包和静态分析方面进行进一步优化。
 
 ## 项目安装
 
@@ -22,7 +22,7 @@ git clone https://github.com/starrysky1004/emba-iot.git
 sudo ./installer -D
 ```
 
-创建一些文件夹，文件名随意，前两个文件用于存放实际固件和检测结果，最后一个文件夹用于给 emba 的 docker 临时存放固件检测结果
+创建一些文件夹，前两个文件夹的路径和名称可自定义，用于存放实际固件和检测结果，最后一个文件夹用于给 emba 的 docker 临时存放固件检测结果
 
 ```shell
 mkdir ~/firmware
@@ -31,7 +31,11 @@ cd emba-iot
 mkdir firmware_log
 ```
 
-在 emba 文件夹中构建 docker，firmware 文件夹在项目中自带，firmware_log 是上一步创建的文件夹，由于这里要求是空文件夹所以没有在 github 中创建。这里可以根据需要修改 docker-compose.yml。
+在 emba 文件夹中构建 docker，firmware 文件夹在项目中自带，firmware_log 是上一步创建的文件夹
+
+> [!CAUTION]
+>
+> 由于 emba 使用 docker 运行前需要保证 firmware_log 是空文件夹，且该参数不是每次通过参数指定传入 emba ，本项目中在 emba 添加了停止运行就清空  firmware_log 文件夹的功能，因此这里创建的文件夹名字只能是  firmware_log 
 
 ```shell
 EMBA="." FIRMWARE=./firmware LOG=./firmware_log/ docker compose run emba
@@ -48,13 +52,15 @@ EMBA="." FIRMWARE=./firmware LOG=./firmware_log/ docker compose run emba
 - firmware / firmware_log：用于给docker临时存放固件文件和检测结果
 - modules ：存放项目运行所需的不同模块源码
 - output：存放用于输出转化的脚本，实时监测程序运行情况并将生成的结果转化成json文件
-- scan-profiles：存放配置文件，用于指定使用modules中的哪些模块
-- emba：项目主程序，bash脚本
+  - 其中 vulnerability_reports 目录包含了 CWE 和脚本漏洞分析生成的 JSON 文件中各漏洞类型的中文描述说明，但输出的 json 中不包含中文说明
+
+- scan-profiles：存放配置文件，用于指定使用 modules 中的哪些模块
+- emba：项目主程序，bash 脚本
 - installer.sh / installer：安装程序和安装程序目录
 
 使用指令：
 
-- firmware 和 log 为安装过程中创建的文件路径，实际固件需要存放到 firmware 文件夹中，每次指定的 log_dirname 名字需要不一样，可以考虑命名方式为时间+固件名或随机生成字符串
+- firmware 和 log 为安装时创建在<u>**家目录**</u>的文件路径，实际固件需要存放到 firmware 文件夹中，<u>**每次指定的 log_dirname 名字需要不一样**</u>，可以考虑命名方式为时间+固件名或随机生成字符串
 - scan-profiles 的选择见功能介绍
 
 ```shell
@@ -65,19 +71,19 @@ EMBA="." FIRMWARE=./firmware LOG=./firmware_log/ docker compose run emba
 
 ![image-20250806152321091](helpers/image-20250806152321091.png)
 
-检测结果如下：最终只需要关注log/results中生成的json文件
+检测结果如下：最终只需要关注 log/results 中生成的 json 文件
 
 ![image-20250806152552480](helpers/image-20250806152552480.png)
 
 ## 功能介绍
 
-### 配置文件
+### 扫描模式配置文件
 
-以下为 scan-profiles 中的配置文件，每个配置文件包含上一个配置文件的功能，不作重复描述
+以下为 scan-profiles 文件夹中的配置文件，每个配置文件包含上一个配置文件的功能，不作重复描述
 
 - quick_sbom.emba：识别固件相关组件和许可证，生成 SBOM.json 和 license.json
 
-  - SBOM.json：emba自带生成的不包含漏洞信息的SBOM，可以不用这个直接从后续其他json中提取SBOM
+  - SBOM.json：emba 自带生成的不包含漏洞信息的SBOM，可以不用这个直接从后续其他 json 中提取 SBOM
 
     ```json
     {
@@ -231,15 +237,44 @@ EMBA="." FIRMWARE=./firmware LOG=./firmware_log/ docker compose run emba
               "confidence": "string"          // 置信度
             }
           ]
+        },
+        "s22_php_check": {
+          "total_issues": "int",              // 总问题数
+          "progpilot_issues": "int",          // Progpilot检测问题数
+          "issues": [
+            {
+              "file_name": "string",          // 文件名
+              "line_number": "int",           // 行号
+              "column_number": "int",         // 列号
+              "error_code": "string",         // 错误代码
+              "error_message": "string",      // 错误信息
+              "vulnerability_type": "string", // 漏洞类型
+              "code_snippet": "string",       // 代码片段
+              "severity": "string"            // 严重程度
+            }
+          ]
+        },
+        "s27_perl_check": {
+          "total_issues": "int",              // 总问题数
+          "issues": [
+            {
+              "file_name": "string",          // 文件名
+              "line_number": "int",           // 行号
+              "error_code": "string",         // 错误代码
+              "error_message": "string",      // 错误信息
+              "code_snippet": "string",       // 代码片段
+              "severity": "string"            // 严重程度
+            }
+          ]
         }
       }
     }
     ```
-
+    
     检测漏洞类型包括：
-
+    
     python
-
+    
     ```python
     {
         'B101': 'assert_used - 使用了assert语句',
@@ -296,14 +331,57 @@ EMBA="." FIRMWARE=./firmware LOG=./firmware_log/ docker compose run emba
         'B704': 'markupsafe_markup_xss - MarkupSafe标记XSS'
     }
     ```
-
     
+    php
+    
+    ```python
+    	{
+            'CWE_78': 'OS Command Injection - 操作系统命令注入',
+            'CWE_79': 'Cross-site Scripting (XSS) - 跨站脚本攻击',
+            'CWE_89': 'SQL Injection - SQL注入',
+            'CWE_90': 'LDAP Injection - LDAP注入',
+            'CWE_91': 'XML Injection - XML注入',
+            'CWE_95': 'Code Injection - 代码注入',
+            'CWE_98': 'PHP File Inclusion - PHP文件包含',
+            'CWE_22': 'Path Traversal - 路径遍历',
+            'CWE_384': 'Session Fixation - 会话固定',
+            'CWE_601': 'URL Redirection to Untrusted Site - URL重定向到不可信站点',
+            'CWE_1333': 'Regular Expression Denial of Service (ReDoS) - 正则表达式拒绝服务'
+        }
+        
+    	{
+            'external.semgrep-rules.php.lang.security.unlink-use': 'Unsafe File Deletion - 不安全的文件删除',
+            'external.semgrep-rules.php.lang.security.unserialize-use': 'Unsafe Unserialize - 不安全的反序列化',
+            'external.semgrep-rules.php.lang.security.weak-crypto': 'Weak Cryptography - 弱加密算法'
+        }
+    ```
+    
+    perl
+    
+    ```python
+    	{
+            'Debug module enabled': 'Debug module enabled - 调试模块启用',
+            'Code Injection': 'Code Injection - 代码注入',
+            'Path Traversal': 'Path Traversal - 路径遍历',
+            'Weak Criptography Algorithm': 'Weak Criptography Algorithm - 弱加密算法',
+            'Weak Random Value Generator': 'Weak Random Value Generator - 弱随机值生成器',
+            'Error Suppression': 'Error Suppression - 错误抑制',
+            'Cross Site Scripting (XSS)': 'Cross Site Scripting (XSS) - 跨站脚本攻击',
+            'Command Injection': 'Command Injection - 命令注入',
+            'Connection String Injection': 'Connection String Injection - 连接字符串注入',
+            'LDAP Injection': 'LDAP Injection - LDAP注入',
+            'XSS': 'XSS - 跨站脚本攻击',
+            'Remote File Inclusion': 'Remote File Inclusion - 远程文件包含',
+            'Resource Injection': 'Resource Injection - 资源注入',
+            'SQL Injection': 'SQL Injection - SQL注入'
+        }
+    ```
 
-- full_scan.emba：检测二进制程序中的漏洞、识别kernel版本相关cve并进行验证、密钥识别爆破
+- full_scan.emba：检测二进制程序中的漏洞、识别kernel版本相关cve并进行验证、密钥识别与爆破
 
-  > [!TIP]
+  > [!IMPORTANT]
   >
-  > 爆破密钥功能个人认为用处不大且费时间，一个小时爆破失败会自动停止，不需要可以在emba中删除S109
+  > 该模式需要在运行 emba 的时候加 -c 选项 ！！
 
   - cwe.json
 
@@ -331,85 +409,21 @@ EMBA="." FIRMWARE=./firmware LOG=./firmware_log/ docker compose run emba
     }
     ```
 
-    检测漏洞类型包括
-
-    python
-
-    ```python
-    	{
-            'CWE78': 'OS Command Injection - 操作系统命令注入',
-            'CWE119': 'Buffer Overflow - 缓冲区溢出',
-            'CWE120': 'Buffer Copy without Checking Size - 未检查大小的缓冲区复制',
-            'CWE125': 'Out-of-bounds Read - 越界读取',
-            'CWE134': 'Use of Externally-Controlled Format String - 使用外部控制的格式化字符串',
-            'CWE190': 'Integer Overflow or Wraparound - 整数溢出或回绕',
-            'CWE215': 'Information Exposure Through Debug Information - 通过调试信息泄露信息',
-            'CWE243': 'Creation of chroot Jail Without Changing Working Directory - 创建chroot监狱但未更改工作目录',
-            'CWE332': 'Insufficient Entropy in PRNG - PRNG中熵不足',
-            'CWE337': 'Predictable Seed in Pseudo-Random Number Generator (PRNG) - 伪随机数生成器中的可预测种子',
-            'CWE367': 'Time-of-check Time-of-use (TOCTOU) Race Condition - 检查时间与使用时间竞争条件',
-            'CWE415': 'Double Free - 双重释放',
-            'CWE416': 'Use After Free - 释放后使用',
-            'CWE426': 'Untrusted Search Path - 不可信搜索路径',
-            'CWE467': 'Use of sizeof() on a Pointer Type - 对指针类型使用sizeof()',
-            'CWE476': 'NULL Pointer Dereference - 空指针解引用',
-            'CWE560': 'Use of umask() with chmod-style Argument - 使用chmod风格参数的umask()',
-            'CWE676': 'Use of Potentially Dangerous Function - 使用潜在危险函数',
-            'CWE782': 'Exposed IOCTL with Insufficient Access Control - 暴露的IOCTL访问控制不足',
-            'CWE787': 'Out-of-bounds Write - 越界写入',
-            'CWE789': 'Memory Allocation with Excessive Size Value - 内存分配大小值过大'
-        }
-    ```
-
-    php
-
-    ```python
-    	{
-            'CWE_78': 'OS Command Injection - 操作系统命令注入',
-            'CWE_79': 'Cross-site Scripting (XSS) - 跨站脚本攻击',
-            'CWE_89': 'SQL Injection - SQL注入',
-            'CWE_90': 'LDAP Injection - LDAP注入',
-            'CWE_91': 'XML Injection - XML注入',
-            'CWE_95': 'Code Injection - 代码注入',
-            'CWE_98': 'PHP File Inclusion - PHP文件包含',
-            'CWE_22': 'Path Traversal - 路径遍历',
-            'CWE_384': 'Session Fixation - 会话固定',
-            'CWE_601': 'URL Redirection to Untrusted Site - URL重定向到不可信站点',
-            'CWE_1333': 'Regular Expression Denial of Service (ReDoS) - 正则表达式拒绝服务'
-        }
-        
-    	{
-            'external.semgrep-rules.php.lang.security.unlink-use': 'Unsafe File Deletion - 不安全的文件删除',
-            'external.semgrep-rules.php.lang.security.unserialize-use': 'Unsafe Unserialize - 不安全的反序列化',
-            'external.semgrep-rules.php.lang.security.weak-crypto': 'Weak Cryptography - 弱加密算法'
-        }
-    ```
-
-    perl
-
-    ```python
-    	{
-            'Debug module enabled': 'Debug module enabled - 调试模块启用',
-            'Code Injection': 'Code Injection - 代码注入',
-            'Path Traversal': 'Path Traversal - 路径遍历',
-            'Weak Criptography Algorithm': 'Weak Criptography Algorithm - 弱加密算法',
-            'Weak Random Value Generator': 'Weak Random Value Generator - 弱随机值生成器',
-            'Error Suppression': 'Error Suppression - 错误抑制',
-            'Cross Site Scripting (XSS)': 'Cross Site Scripting (XSS) - 跨站脚本攻击',
-            'Command Injection': 'Command Injection - 命令注入',
-            'Connection String Injection': 'Connection String Injection - 连接字符串注入',
-            'LDAP Injection': 'LDAP Injection - LDAP注入',
-            'XSS': 'XSS - 跨站脚本攻击',
-            'Remote File Inclusion': 'Remote File Inclusion - 远程文件包含',
-            'Resource Injection': 'Resource Injection - 资源注入',
-            'SQL Injection': 'SQL Injection - SQL注入'
-        }
-    ```
-
-  - kernel.json
+  - kernel.json：cve 验证的方式是将存在 cve 漏洞版本的 kernel 与当前的 kernel 进行比较确认是否一致
 
     ```json
     {
+      "summary": {
+        "total_vulnerabilities": 0,               // 总漏洞数量
+        "verified_vulnerabilities": 0,            // 已验证的漏洞数量
+        "severity_distribution": {
+          "Critical": 0,                          // 严重漏洞数量
+          "High": 0,                              // 高危漏洞数量
+          "Medium": 0,                            // 中危漏洞数量
+          "Low": 0,                               // 低危漏洞数量
+          "Unknown": 0                            // 未知严重程度漏洞数量
+        }
+      },
       "kernel_analysis": {
         "kernel_version": "string",               // 内核版本
         "kernel_modules": [
@@ -434,13 +448,14 @@ EMBA="." FIRMWARE=./firmware LOG=./firmware_log/ docker compose run emba
           "severity": "string",                   // 严重程度
           "epss": "string",                       // EPSS评分
           "source": "string",                     // 数据来源
-          "exploit_info": "string"                // 漏洞利用信息
+          "exploit_info": "string",               // 漏洞利用信息
+          "verified": true                        // 是否已验证
         }
       ]
     }
     ```
 
-  - passwd.json
+  - passwd.json：主要破解的密钥来自于 /etc/shadow 
 
     ```json
     {
@@ -480,11 +495,22 @@ EMBA="." FIRMWARE=./firmware LOG=./firmware_log/ docker compose run emba
     }
     ```
 
-- 其他输出文件：
+| 扫描模式                            | quick_sbom | sbom_link_cve | quick_scan | full_scan |
+| ----------------------------------- | ---------- | ------------- | ---------- | --------- |
+| 组件扫描                            | √          | √             | √          | √         |
+| 许可证扫描                          | √          | √             | √          | √         |
+| 组件关联cve                         |            | √             | √          | √         |
+| 脚本漏洞检测（python / php / perl） |            |               | √          | √         |
+| 二进制程序漏洞检测                  |            |               |            | √         |
+| 内核关联cve识别与验证               |            |               |            | 可选      |
+| 密钥扫描和爆破                      |            |               |            | 可选      |
 
+- 其他输出文件：
   - log/results/scripts.log：output 中的脚本的日志文件，运行出错的时候可以根据日志文件判断问题
 
-## 运行性能
+### 运行性能
+
+测试固件 35.66 MB 解包后 217MB，涵盖了所有测试模块，结果仅供参考，不同固件耗时不同。
 
 | 配置文件               | 配置环境 | 耗时       |
 | ---------------------- | -------- | ---------- |
@@ -505,4 +531,114 @@ EMBA="." FIRMWARE=./firmware LOG=./firmware_log/ docker compose run emba
 |                        | 8c8G     | 29min29s   |
 |                        | 16c16G   | 12min44s   |
 
+## 配置文件
 
+可以在 scan-profiles 中添加自定义扫描模式的配置文件，以下是配置文件编写说明
+
+可选参数
+
+| 变量名                    | 含义                                                         | 示例                                                         |
+| ------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `FORMAT_LOG`              | 启用带颜色的日志格式（增强可读性）                           | `export FORMAT_LOG=0`                                        |
+| `THREADED`                | 启用多线程处理（加快扫描速度）                               | `export THREADED=1`                                          |
+| `SHORT_PATH`              | 日志中仅显示相对路径（简化输出）                             | `export SHORT_PATH=0`                                        |
+| `HTML`                    | 生成 HTML 格式报告（可视化结果）                             | `export HTML=1`                                              |
+| `SILENT`                  | 启用静默模式（减少控制台输出，仅保留关键信息）               | `export SILENT=1`                                            |
+| `DISABLE_STATUS_BAR`      | 禁用状态栏显示（`0`启用，`1`禁用）                           | `export DISABLE_STATUS_BAR=0`                                |
+| `DISABLE_NOTIFICATIONS`   | 禁用桌面通知（避免干扰）                                     | `export DISABLE_NOTIFICATIONS=1`                             |
+| `DISABLE_DOTS`            | 禁用状态点输出（状态点用于显示实时进度，禁用后简化输出）     | `export DISABLE_DOTS=1`                                      |
+| `QUICK_SCAN`              | 启用快速扫描模式（优先速度，禁用长运行模块）                 | `export QUICK_SCAN=1`                                        |
+| `SBOM_MINIMAL`            | 启用最小 SBOM 模式（减少非必要信息，加快生成速度）           | `export SBOM_MINIMAL=1`（启用）                              |
+| `SBOM_UNTRACKED_FILES`    | 控制是否包含未被包管理系统跟踪的文件： - `1`：仅包含 ELF 文件 - `2`：包含所有文件 | `export SBOM_UNTRACKED_FILES=1`                              |
+| `SBOM_MAX_FILE_LOG`       | 限制 SBOM 日志中的文件记录数量（避免冗余）                   | `export SBOM_MAX_FILE_LOG=500`（最多 500 条）                |
+| `DISABLE_DEEP`            | 禁用深度提取（加快处理，适合非 Linux 固件）                  | `export disable_DEEP=1`（禁用）                              |
+| `DEEP_EXT_DEPTH`          | 深度提取器的最大轮数（`1-4`，轮数越多提取越深入）            | `export DEEP_EXT_DEPTH=1`（1 轮）                            |
+| `SELECT_MODULES+=(...)`   | 仅启用指定模块（数组元素为模块 ID，如 "S06"），其他模块默认禁用 | `export SELECT_MODULES+=( "S06" "S08" "F15" )`               |
+| `MODULE_BLACKLIST+=(...)` | 禁用指定模块（数组元素为模块 ID），其他模块默认启用          | `export MODULE_BLACKLIST+=( "S10" "S99" )`                   |
+| `QEMULATION`              | 启用 QEMU 用户模式模拟（通过模拟识别组件版本）               | `export QEMULATION=1`（启用）                                |
+| `FULL_EMULATION`          | 启用全系统模拟（模拟整个设备运行时环境，比用户模式更深入）   | `export FULL_EMULATION=1`（启用）                            |
+| `BINARY_EXTENDED`         | 启用扩展二进制测试（分析非 Linux 二进制文件，如 Windows EXE） | `export BINARY_EXTENDED=1`（启用）                           |
+| `MAX_EXT_CHECK_BINS`      | 扩展二进制测试的最大文件数量（限制处理量，优化速度）         | `export MAX_EXT_CHECK_BINS=15`（15 个文件）                  |
+| `YARA`                    | 启用 YARA 规则扫描（识别文件中的可疑模式）                   | `export YARA=1`（启用）                                      |
+| `S08_MODULES_ARR=(...)`   | 细化 S08 模块的子模块（仅 S08 生效，指定需要启用的子模块，如包解析器） | `S08_MODULES_ARR=( "S08_submodule_debian_pkg_mgmt_parser" )` |
+| `USE_DOCKER`              | 强制在 Docker 环境中运行（避免对主机系统产生影响）           | 脚本自动设置，无需手动 export                                |
+
+以 full_scan 为例，目前所有配置文件均设置为：启用多线程、禁用带颜色的log（否则影响后续从 log 中提取信息生成 json）、禁用生成html、禁止在终端输出点（可以用来确认程序还在运行，但是一屏幕的点看着很难评）
+
+| 模块编号                     | 模块功能                                                     | 2c4g的运行时间（仅作为不同模块对比的参考）     |
+| ---------------------------- | ------------------------------------------------------------ | ---------------------------------------------- |
+| "S03" "S06" "S08" "S09"      | 基础检测                                                     | 11分9秒                                        |
+| "S21" "S22" "S27"            | 脚本漏洞检测                                                 | 5分48秒                                        |
+| "S24" "S25" "S26"            | 内核关联 cve 识别与验证（S26 模块运行时间较长，作为可选项）  | 1小时57分18秒，其中 S26 模块 1小时48分49秒     |
+| "S17"                        | 二进制程序漏洞检测，需要同时设置 `export YARA=1`             | 51秒                                           |
+| "S106"  "S107" "S108" "S109" | 检测与爆破密钥（S109 模块用于爆破密钥，一个小时没有结果自动停止，作为可选项建议禁用） | 5分钟，密钥是123，复杂密钥可能直接浪费一个小时 |
+| "F10"                        | 检测许可证                                                   | 3秒                                            |
+| "F15"                        | 生成 sbom                                                    | 22秒                                           |
+| "F17"                        | 检测组件关联 cve                                             | 3分25秒                                        |
+
+```shell
+# Need to add -c option
+
+# 可选配置
+export FORMAT_LOG=0 
+export THREADED=1  
+export SHORT_PATH=0 
+export HTML=0      
+export DISABLE_DOTS=1  
+export YARA=1   
+export SBOM_MINIMAL=0
+export DISABLE_DEEP=0  
+export VEX_METRICS=1
+export QEMULATION=1
+
+# 选择需要的模块
+export SELECT_MODULES+=( "S03" "S06" "S08" "S09" )                 # 扫描基础信息
+export SELECT_MODULES+=( "S21" "S22" "S27" )                       # 检测脚本漏洞
+export SELECT_MODULES+=( "S24" "S25" "S26" )                       # 提取内核版本，扫描内核关联cve并验证
+export SELECT_MODULES+=( "S17" )                                   # 扫描二进制程序漏洞
+export SELECT_MODULES+=( "S106"  "S107" "S108" "S109" )            # 扫描密钥并进行爆破
+export SELECT_MODULES+=( "F10" "F15" "F17" )                       # 检测许可证和组件关联cve，生成sbom
+
+# S08 模块选择的子模块（以下是全部模块，不需要的直接注释掉即可）
+export S08_MODULES_ARR=()
+S08_MODULES_ARR=( "S08_submodule_debian_pkg_mgmt_parser" )
+S08_MODULES_ARR+=( "S08_submodule_deb_package_parser" )
+S08_MODULES_ARR+=( "S08_submodule_openwrt_pkg_mgmt_parser" )
+S08_MODULES_ARR+=( "S08_submodule_openwrt_ipk_package_parser" )
+S08_MODULES_ARR+=( "S08_submodule_rpm_pkg_mgmt_parser" )
+S08_MODULES_ARR+=( "S08_submodule_rpm_package_parser" )
+S08_MODULES_ARR+=( "S08_submodule_bsd_package_parser" )
+S08_MODULES_ARR+=( "S08_submodule_python_pip_package_mgmt_parser" )
+S08_MODULES_ARR+=( "S08_submodule_python_requirements_parser" )
+S08_MODULES_ARR+=( "S08_submodule_python_poetry_lock_parser" )
+S08_MODULES_ARR+=( "S08_submodule_java_archives_parser" )
+# S08_MODULES_ARR+=( "S08_submodule_ruby_gem_archive_parser" )
+# S08_MODULES_ARR+=( "S08_submodule_alpine_apk_package_parser" )
+S08_MODULES_ARR+=( "S08_submodule_windows_exifparser" )
+S08_MODULES_ARR+=( "S08_submodule_rust_cargo_lock_parser" )
+S08_MODULES_ARR+=( "S08_submodule_node_js_package_lock_parser" )
+S08_MODULES_ARR+=( "S08_submodule_c_conanfile_txt_parser" )
+S08_MODULES_ARR+=( "S08_submodule_perl_cpan_parser" )
+S08_MODULES_ARR+=( "S08_submodule_php_composer_lock" )
+S08_MODULES_ARR+=( "S08_submodule_python_pipfile_lock" )
+# S08_MODULES_ARR+=( "S08_submodule_apk_pkg_mgmt_parser" )
+
+# 自动启用 docker，这段不需要动
+if [[ $IN_DOCKER -ne 1 ]] ; then
+  print_output "$(indent "$(orange "Adds ANSI color codes to log")")" "no_log"
+  print_output "$(indent "$(orange "Activate multi threading")")" "no_log"
+  print_output "$(indent "$(orange "Prints only relative paths")")" "no_log"
+  print_output "$(indent "$(orange "Activates web report creation in log path")")" "no_log"
+  if [[ "$USE_DOCKER" -ne 1 ]]; then
+    print_output "$(indent "$(orange "Enables automated qemu emulation tests (WARNING this module could harm your host!)")")" "no_log"
+  else
+    print_output "$(indent "$(orange "Enables automated qemu emulation tests")")" "no_log"
+  fi
+  print_output "$(indent "$(orange "Runs EMBA in docker container")")" "no_log"
+  print_output "$(indent "$(orange "Enabled EMBA module via profile")")" "no_log"
+  for MODULE_ in "${SELECT_MODULES[@]}"; do
+    print_output "$(indent "$(orange "Enabled module: $MODULE_")")" "no_log"
+  done
+  export USE_DOCKER=1
+fi
+```
