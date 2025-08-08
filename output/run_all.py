@@ -68,16 +68,32 @@ def parse_emba_log(emba_log_path):
     
     return completed_modules
 
-def should_run_script(script_name, completed_modules):
+def should_run_script(script_name, completed_modules, processed_modules=None):
     """Determine whether to run script based on EMBA log results"""
+    if processed_modules is None:
+        processed_modules = set()
+    
     script_conditions = {
-        'kernel.py': ['S24_kernel_bin_identifier finished', 'S25_kernel_check finished', 'S26_kernel_vuln_verifier finished'],
         'components_cve.py': ['F17_cve_bin_tool finished'],
         'cwe.py': ['S17_cwe_checker finished'],
         'license.py': ['F10_license_summary finished'],
         'passwd.py': ['S109_jtr_local_pw_cracking finished'],  
         'scripts_vul.py': ['S21_python_check finished', 'S22_php_check finished', 'S27_perl_check finished']
     }
+    
+    # Special handling for kernel.py - run when s25 OR s26 is completed, but only once per module
+    if script_name == 'kernel.py':
+        s25_completed = 'S25_kernel_check finished' in completed_modules
+        s26_completed = 'S26_kernel_vuln_verifier finished' in completed_modules
+        
+        # Check if we should run based on new completions
+        should_run = False
+        if s25_completed and 'S25_kernel_check finished' not in processed_modules:
+            should_run = True
+        elif s26_completed and 'S26_kernel_vuln_verifier finished' not in processed_modules:
+            should_run = True
+            
+        return should_run
     
     required_patterns = script_conditions.get(script_name, [])
     if not required_patterns:
@@ -89,7 +105,7 @@ def should_run_script(script_name, completed_modules):
     
     return True
 
-def run_script(script_name, input_prefix, output_prefix, log_prefix):
+def run_script(script_name, input_prefix, output_prefix, log_prefix, completed_modules=None, processed_modules=None):
     """Run a single script"""
     try:
         logging.info(f"Starting: {script_name}")
@@ -109,6 +125,18 @@ def run_script(script_name, input_prefix, output_prefix, log_prefix):
             '--output-prefix', output_prefix,
             '--log-prefix', script_log_prefix
         ]
+        
+        # Add special arguments for kernel.py
+        if script_name == 'kernel.py' and completed_modules:
+            s25_completed = 'S25_kernel_check finished' in completed_modules
+            s26_completed = 'S26_kernel_vuln_verifier finished' in completed_modules
+            
+            if s25_completed and 'S25_kernel_check finished' not in (processed_modules or set()):
+                cmd.extend(['--process-s25'])
+                logging.info("Running kernel.py with --process-s25")
+            elif s26_completed and 'S26_kernel_vuln_verifier finished' not in (processed_modules or set()):
+                cmd.extend(['--process-s26'])
+                logging.info("Running kernel.py with --process-s26")
         
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=os.getcwd(), env=env)
         
@@ -225,6 +253,7 @@ def main():
     emba_log_path = os.path.join(args.input_prefix, 'emba.log')
     run_count = 0
     test_ended = False
+    processed_modules = set()  # Track which modules have been processed
     
     while True:
         run_count += 1
@@ -240,11 +269,17 @@ def main():
         total_count = 0
         
         for script in scripts:
-            if should_run_script(script, completed_modules):
+            if should_run_script(script, completed_modules, processed_modules):
                 total_count += 1
                 if os.path.exists(script):
-                    if run_script(script, args.input_prefix, args.output_prefix, args.log_prefix):
+                    if run_script(script, args.input_prefix, args.output_prefix, args.log_prefix, completed_modules, processed_modules):
                         success_count += 1
+                        # Mark modules as processed for kernel.py
+                        if script == 'kernel.py':
+                            if 'S25_kernel_check finished' in completed_modules:
+                                processed_modules.add('S25_kernel_check finished')
+                            if 'S26_kernel_vuln_verifier finished' in completed_modules:
+                                processed_modules.add('S26_kernel_vuln_verifier finished')
                 else:
                     logging.warning(f"Script not found: {script}")
         
@@ -267,3 +302,4 @@ def main():
 
 if __name__ == "__main__":
     main() 
+

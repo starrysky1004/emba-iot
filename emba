@@ -353,6 +353,15 @@ main() {
       find "${INVOCATION_PATH}/firmware_log" -mindepth 1 -delete 2>/dev/null || true
       print_output "[*] $(print_date) - firmware_log directory cleaned" "no_log"
     fi
+    
+    # Wait for scripts.log to contain "All runs completed!" message
+    if [[ -n "${LOG_DIR}" ]] && [[ -f "${LOG_DIR}/results/scripts.log" ]]; then
+      print_output "[*] $(print_date) - Waiting for scripts to complete..." "no_log"
+      while ! grep -q "All runs completed!" "${LOG_DIR}/results/scripts.log" 2>/dev/null; do
+        sleep 1
+      done
+      print_output "[*] $(print_date) - All scripts completed!" "no_log"
+    fi
   }
   
   # Enhanced signal handler that calls both cleaner and firmware_log cleanup
@@ -851,8 +860,8 @@ main() {
           print_output "[*] $(print_date) - Access the web-report with ${ORANGE}firefox $(abs_path "${HTML_PATH}/index.html")${NC}" "main"
         fi
         cleaner 0
-        cleanup_firmware_log
         print_output "[!] $(print_date) - Test ended on ""$(print_date)"" and took about ""$(show_runtime)"" \\n" "main"
+        cleanup_firmware_log
       else
         # we do not need the log dir from dependency checker
         [[ -d "${LOG_DIR}" ]] && rm -rf "${LOG_DIR}"
@@ -1106,9 +1115,11 @@ main() {
     if [[ -d "${LOG_DIR}" ]]; then
       print_output "[!] $(print_date) - Test ended on ""$(print_date)"" and took about ""$(show_runtime)"" \\n" "main"
       write_notification "EMBA finished analysis"
+      cleanup_firmware_log
       rm -r "${TMP_DIR}" 2>/dev/null || true
     else
       print_output "[!] $(print_date) - Test ended on ""$(print_date)"" and took about ""$(show_runtime)"" \\n" "no_log"
+      cleanup_firmware_log
     fi
   else
     print_output "[!] $(print_date) - No extracted firmware found" "no_log"

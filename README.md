@@ -1,94 +1,241 @@
-# EMBA-IOT
+# 🔍 EMBA-IOT - 固件供应链安全检测平台
 
-该项目改编自 [EMBA](https://github.com/e-m-b-a/emba)，用于检测固件的供应链安全，目前支持对未加密固件及部分厂商加密固件的解包、扫描固件组件、检测组件关联 cve、检测固件中的二进制程序与脚本文件的安全漏洞、识别固件包含的许可证，以及识别密钥字符并对部分识别到的密码进行爆破，具体功能介绍见下文。后续将在加密固件解包和静态分析方面进行进一步优化。
+> **基于 EMBA 的智能固件安全分析工具** 🚀
 
-## 项目安装
+该项目改编自 [EMBA](https://github.com/e-m-b-a/emba)，专门用于检测固件的供应链安全。目前支持对未加密固件及部分厂商加密固件的解包、扫描固件组件、检测组件关联 CVE、检测固件中的二进制程序与脚本文件的安全漏洞、识别固件包含的许可证，以及识别密钥字符并对部分识别到的密码进行爆破。
 
-操作系统：Ubuntu 22.04 / Ubuntu 24.04 / Kali
+## 🛠️ 环境要求
 
-> [!NOTE]
->
-> 安装该项目之前需要先安装 docker 和 docker compose 并且进行换源，最好 git 挂代理
+### 支持的操作系统
+- Ubuntu 22.04 / Ubuntu 24.04
+- Kali Linux
 
-clone 项目
+### 前置依赖
+- Docker
+- Docker Compose
+- Git
 
-```shell
+> ⚠️ **重要提示**
+> 
+> 安装前请确保已正确安装 Docker 和 Docker Compose，并配置好镜像源。建议为 Git 配置代理以加速下载。
+
+## 📦 安装指南
+
+### 1. 克隆项目
+```bash
 git clone https://github.com/starrysky1004/emba-iot.git
+cd emba-iot
 ```
 
-安装 emba，这里可能跑不到最后就会报错退出，但不影响配置文件中的模块运行
-
-```shell
+### 2. 安装 EMBA
+```bash
 sudo ./installer -D
 ```
 
-创建一些文件夹，前两个文件夹的路径和名称可自定义，用于存放实际固件和检测结果，最后一个文件夹用于给 emba 的 docker 临时存放固件检测结果
+> 💡 **说明**：安装过程可能会中途报错退出，但这不影响配置文件中的模块正常运行。
 
-```shell
+### 3. 创建必要目录
+```bash
+# 创建固件存储目录（路径可自定义）
 mkdir ~/firmware
+
+# 创建日志存储目录（路径可自定义）
 mkdir ~/log
+
+# 创建 EMBA Docker 临时目录（必须使用此名称）
 cd emba-iot
 mkdir firmware_log
 ```
 
-在 emba 文件夹中构建 docker，firmware 文件夹在项目中自带，firmware_log 是上一步创建的文件夹
+> ⚠️ **重要**：`firmware_log` 目录名称必须保持默认，因为 EMBA 使用 Docker 运行前需要保证该目录为空，且项目已添加自动清理 `firmware_log` 目录功能。
 
-> [!CAUTION]
->
-> 由于 emba 使用 docker 运行前需要保证 firmware_log 是空文件夹，且该参数不是每次通过参数指定传入 emba ，本项目中在 emba 添加了停止运行就清空  firmware_log 文件夹的功能，因此这里创建的文件夹名字只能是  firmware_log 
-
-```shell
+### 4. 构建 Docker 镜像
+```bash
 EMBA="." FIRMWARE=./firmware LOG=./firmware_log/ docker compose run emba
 ```
 
-构建过程时间比较长，完成后如下，直接退出即可，后续使用的时候会自动在docker里运行
+> ⏱️ **注意**：构建过程耗时较长，请耐心等待。完成后可直接退出，后续使用时会自动在 Docker 中运行。
 
-![image-20250806150229038](helpers/image-20250806150229038.png)
+![Docker 构建完成](helpers/image-20250806150229038.png)
 
-## 使用方法
+## 🚀 使用方法
 
-主要项目文件结构：
+### 项目结构概览
 
-- firmware / firmware_log：用于给docker临时存放固件文件和检测结果
-- modules ：存放项目运行所需的不同模块源码
-- output：存放用于输出转化的脚本，实时监测程序运行情况并将生成的结果转化成json文件
-  - 其中 vulnerability_reports 目录包含了 CWE 和脚本漏洞分析生成的 JSON 文件中各漏洞类型的中文描述说明，但输出的 json 中不包含中文说明
+```
+emba-iot/
+├── 📁 firmware/          # Docker 临时固件存储
+├── 📁 firmware_log/      # Docker 临时结果存储
+├── 📁 modules/           # 核心分析模块源码
+├── 📁 output/            # 结果转换脚本
+│   └── 📁 vulnerability_reports/  # 漏洞类型中文说明
+├── 📁 scan-profiles/     # 扫描配置文件
+├── 📄 emba              # 主程序脚本
+├── 📄 installer.sh      # 安装程序
+└── 📁 installer/        # 安装程序目录
+```
 
-- scan-profiles：存放配置文件，用于指定使用 modules 中的哪些模块
-- emba：项目主程序，bash 脚本
-- installer.sh / installer：安装程序和安装程序目录
+### 基本使用命令
 
-使用指令：
-
-- firmware 和 log 为安装时创建在<u>**家目录**</u>的文件路径，实际固件需要存放到 firmware 文件夹中，<u>**每次指定的 log_dirname 名字需要不一样**</u>，可以考虑命名方式为时间+固件名或随机生成字符串
-- scan-profiles 的选择见功能介绍
-
-```shell
+```bash
 ./emba -f ~/firmware/firmware_name -l ~/log/log_dirname -p ./scan-profiles/profile
 ```
 
-运行结果：
+**参数说明**：
 
-![image-20250806152321091](helpers/image-20250806152321091.png)
+- `-f`：固件文件路径（存放到 `~/firmware/` 目录中）
+- `-l`：日志和结果目录名称（**每次必须使用不同的名称**，建议使用时间+固件名或随机字符串）
+- `-p`：扫描配置文件路径
+- -c：指定 full_scan.emba 或需要使用 cwe 模块检测二进制程序漏洞时需要加上此选项
 
-检测结果如下：最终只需要关注 log/results 中生成的 json 文件
+### 运行示例
 
-![image-20250806152552480](helpers/image-20250806152552480.png)
+![运行过程](helpers/image-20250806152321091.png)
 
-## 功能介绍
+### 结果查看
 
-### 扫描模式配置文件
+检测完成后，重点关注 `log/results/` 目录中生成的 JSON 文件：
 
-以下为 scan-profiles 文件夹中的配置文件，每个配置文件包含上一个配置文件的功能，不作重复描述
+![检测结果](helpers/image-20250806152552480.png)
 
-- quick_sbom.emba：识别固件相关组件和许可证，生成 SBOM.json 和 license.json
+## 📋 扫描模式详解
 
-  - SBOM.json：emba 自带生成的不包含漏洞信息的SBOM，可以不用这个直接从后续其他 json 中提取 SBOM
+### 🔍 扫描配置文件对比
 
-    ```json
-    {
-      "$schema": "string",                    // JSON Schema定义
-      "bomFormat": "string",                  // BOM格式版本
+| 功能特性 | quick_sbom | sbom_link_cve | quick_scan | full_scan |
+|---------|------------|---------------|------------|-----------|
+| 🔧 组件扫描 | ✅ | ✅ | ✅ | ✅ |
+| 📜 许可证扫描 | ✅ | ✅ | ✅ | ✅ |
+| 🛡️ 组件关联 CVE | ❌ | ✅ | ✅ | ✅ |
+| 🐍 脚本漏洞检测 | ❌ | ❌ | ✅ | ✅ |
+| 🔍 二进制程序漏洞检测 | ❌ | ❌ | ❌ | ✅ |
+| 🖥️ 内核关联 CVE 识别与验证 | ❌ | ❌ | ❌ | ⚙️ 可选 |
+| 🔐 密钥扫描和爆破 | ❌ | ❌ | ❌ | ⚙️ 可选 |
+
+### 📊 详细功能说明
+
+#### 1. 🔧 **quick_sbom.emba** - 基础组件扫描
+识别固件相关组件和许可证，生成 SBOM 和许可证报告。
+
+**输出文件**：
+- `SBOM.json`：EMBA 自带的 SBOM 文件（不包含漏洞信息）
+- `license.json`：组件许可证信息
+
+#### 2. 🛡️ **sbom_link_cve.emba** - CVE 关联分析
+在基础扫描基础上，识别固件组件关联的 CVE 漏洞。
+
+**输出文件**：
+- `components_cve.json`：组件关联的 CVE 漏洞详情
+
+#### 3. 🐍 **quick_scan.emba** - 脚本安全检测
+检测 Python、PHP、Perl 脚本中的安全漏洞。
+
+**输出文件**：
+- `scripts_vul.json`：脚本漏洞检测结果
+
+#### 4. 🔍 **full_scan.emba** - 全面安全扫描
+最全面的扫描模式，包含所有安全检测功能。
+
+> ⚠️ **重要**：该模式需要在运行 emba 时添加 `-c` 选项！
+
+**输出文件**：
+- `cwe.json`：二进制程序漏洞检测
+- `kernel.json`：内核相关 CVE 识别与验证
+- `passwd.json`：密钥扫描和爆破结果
+
+## 📈 性能基准测试
+
+基于 35.66 MB 固件（解包后 217MB）的测试结果：
+
+| 配置文件 | 配置环境 | 耗时 |
+|---------|---------|------|
+| **quick_sbom.emba** | 2c4G | 7min27s |
+| | 4c4G | 25min34s |
+| | 8c8G | 15min28s |
+| | 16c16G | 8min19s |
+| **sbom_link_cve.emba** | 2c4G | 27min57s |
+| | 4c4G | 30min03s |
+| | 8c8G | 17min52s |
+| | 16c16G | 9min31s |
+| **quick_scan.emba** | 2c4G | 29min32s |
+| | 4c4G | 34min08s |
+| | 8c8G | 20min03s |
+| | 16c16G | 9min57s |
+| **full_scan.emba** | 2c4G | 2h01min09s |
+| | 4c4G | 57min47s |
+| | 8c8G | 29min29s |
+| | 16c16G | 12min44s |
+
+## ⚙️ 配置文件定制
+
+### 📝 可选配置参数
+
+| 参数名 | 功能描述 | 示例值 |
+|--------|----------|--------|
+| `FORMAT_LOG` | 启用带颜色的日志格式 | `export FORMAT_LOG=0` |
+| `THREADED` | 启用多线程处理 | `export THREADED=1` |
+| `SHORT_PATH` | 日志中仅显示相对路径 | `export SHORT_PATH=0` |
+| `HTML` | 生成 HTML 格式报告 | `export HTML=1` |
+| `SILENT` | 启用静默模式 | `export SILENT=1` |
+| `DISABLE_STATUS_BAR` | 禁用状态栏显示 | `export DISABLE_STATUS_BAR=0` |
+| `DISABLE_NOTIFICATIONS` | 禁用桌面通知 | `export DISABLE_NOTIFICATIONS=1` |
+| `DISABLE_DOTS` | 禁用状态点输出 | `export DISABLE_DOTS=1` |
+| `QUICK_SCAN` | 启用快速扫描模式 | `export QUICK_SCAN=1` |
+| `SBOM_MINIMAL` | 启用最小 SBOM 模式 | `export SBOM_MINIMAL=1` |
+| `YARA` | 启用 YARA 规则扫描 | `export YARA=1` |
+| `QEMULATION` | 启用 QEMU 用户模式模拟 | `export QEMULATION=1` |
+| `FULL_EMULATION` | 启用全系统模拟 | `export FULL_EMULATION=1` |
+
+### 🔧 模块选择配置
+
+| 模块组 | 功能描述 | 生成文件 | 参考耗时 (2c4G) |
+|--------|----------|----------|----------------|
+| `"S03" "S06" "S08" "S09"` | 基础检测 | - | 11分9秒 |
+| `"S21" "S22" "S27"` | 脚本漏洞检测 | scripts_vul.json | 5分48秒 |
+| `"S24" "S25" "S26"` | 内核关联 CVE 识别与验证 | kernel.json | 1小时57分18秒 |
+| `"S17"` | 二进制程序漏洞检测 | cwe.json | 51秒 |
+| `"S106" "S107" "S108" "S109"` | 密钥检测与爆破 | passwd.json | 5分钟 |
+| `"F10"` | 许可证检测 | license.json | 3秒 |
+| `"F15"` | 生成 SBOM | SBOM.json | 22秒 |
+| `"F17"` | 组件关联 CVE 检测 | components_cve.json | 3分25秒 |
+
+### 📋 完整配置示例
+
+```bash
+# 基础配置
+export FORMAT_LOG=0 
+export THREADED=1  
+export SHORT_PATH=0 
+export HTML=0      
+export DISABLE_DOTS=1  
+export YARA=1   
+export SBOM_MINIMAL=0
+export DISABLE_DEEP=0  
+export VEX_METRICS=1
+export QEMULATION=1
+
+# 模块选择
+export SELECT_MODULES+=( "S03" "S06" "S08" "S09" )                 # 基础信息扫描
+export SELECT_MODULES+=( "S21" "S22" "S27" )                       # 脚本漏洞检测
+export SELECT_MODULES+=( "S24" "S25" "S26" )                       # 内核 CVE 检测
+export SELECT_MODULES+=( "S17" )                                   # 二进制漏洞检测
+export SELECT_MODULES+=( "S106" "S107" "S108" "S109" )             # 密钥检测爆破
+export SELECT_MODULES+=( "F10" "F15" "F17" )                       # 许可证和 CVE 检测
+
+# S08 子模块配置
+export S08_MODULES_ARR=()
+S08_MODULES_ARR=( "S08_submodule_debian_pkg_mgmt_parser" )
+S08_MODULES_ARR+=( "S08_submodule_deb_package_parser" )
+# ... 更多子模块配置
+```
+
+## 📄 输出文件格式
+
+### 🔧 SBOM.json 格式
+```json
+{  
+"$schema": "string",                    // JSON Schema 定义
+  "bomFormat": "string",                  // BOM 格式版本
       "specVersion": "string",                // 规范版本
       "serialNumber": "string",               // 序列号
       "version": "int",                       // 版本号
@@ -108,537 +255,286 @@ EMBA="." FIRMWARE=./firmware LOG=./firmware_log/ docker compose run emba
           "version": "string",                // 组件版本
           "supplier": {...},                  // 供应商信息
           "group": "string",                  // 组件分组
-          "bom-ref": "string",                // BOM引用ID
+      "bom-ref": "string",                // BOM 引用 ID
           "scope": "string",                  // 作用域
-          "cpe": "string",                    // CPE标识符
-          "purl": "string",                   // 包URL
+      "cpe": "string",                    // CPE 标识符
+      "purl": "string",                   // 包 URL
           "properties": [...],                // 属性列表
           "hashes": [...]                     // 哈希值列表
         }
       ]
-    }
-    ```
+}
+```
 
-  - license.json
-
-    ```json
+### 📜 license.json 格式
+```json
+{
+  "metadata": {
+    "total_components": "int",            // 总组件数量
+    "total_licenses": "int",              // 总许可证类型数量
+    "filtered_out_components": "int",     // 被过滤掉的组件数量
+    "generated_at": "string|null"         // 生成时间戳
+  },
+  "components": [
     {
-      "metadata": {
-        "total_components": "int",            // 总组件数量
-        "total_licenses": "int",              // 总许可证类型数量
-        "filtered_out_components": "int",     // 被过滤掉的组件数量
-        "generated_at": "string|null"         // 生成时间戳
-      },
-      "components": [
-        {
-          "binary": "string",                 // 二进制文件名
-          "product": "string",                // 产品名称
-          "version": "string",                // 版本号
-          "license": "string"                 // 许可证类型
-        }
-      ],
-      "license_summary": {
-        "license": {
-          "count": "int",                     // 该许可证下的组件数量
-          "components": [                     // 使用该许可证的组件列表
-            {
-              "binary": "string",             // 二进制文件名
-              "product": "string",            // 产品名称
-              "version": "string",            // 版本号
-              "license": "string"             // 许可证类型
-            }
-          ]
-        }
-      }
+      "binary": "string",                 // 二进制文件名
+      "product": "string",                // 产品名称
+      "version": "string",                // 版本号
+      "license": "string"                 // 许可证类型
     }
-    ```
-
-- sbom_link_cve.emba：识别固件组件关联的 cve，生成 components_cve.json
-
-  - components_cve.json
-
-    ```json
-    {
-      "total_components": "int",              // 总组件数量
-      "total_vulnerabilities": "int",         // 总漏洞数量
-      "severity_summary": {
-        "critical": "int",                    // 严重级别漏洞数量
-        "high": "int",                        // 高危级别漏洞数量
-        "medium": "int",                      // 中危级别漏洞数量
-        "low": "int"                          // 低危级别漏洞数量
-      },
-      "components": [
+  ],
+  "license_summary": {
+    "license": {
+      "count": "int",                     // 该许可证下的组件数量
+      "components": [                     // 使用该许可证的组件列表
         {
-          "component_name": "string",         // 组件名称
-          "version": "string",                // 组件版本
-          "total_vulnerabilities": "int",     // 该组件总漏洞数
-          "severity_breakdown": {
-            "critical": "int",                // 严重级别数量
-            "high": "int",                    // 高危级别数量
-            "medium": "int",                  // 中危级别数量
-            "low": "int"                      // 低危级别数量
-          },
-          "vulnerabilities": [
-            {
-              "product": "string",            // 产品名称
-              "version": "string",            // 版本号
-              "cve_number": "string",         // CVE编号
-              "severity": "string",           // 严重程度
-              "score": "float",               // CVSS评分
-              "source": "string",             // 数据来源
-              "cvss_version": "string",       // CVSS版本
-              "cvss_vector": "string",        // CVSS向量
-              "remarks": "string"             // 备注信息
-            }
-          ]
+          "binary": "string",             // 二进制文件名
+          "product": "string",            // 产品名称
+          "version": "string",            // 版本号
+          "license": "string"             // 许可证类型
         }
       ]
     }
-    ```
+  }
+}
+```
 
-- quick_scan.emba：检测 python / php / perl 脚本漏洞
-
-  - scripts_vul.json
-
-    ```json
+### 🛡️ components_cve.json 格式
+```json
+{
+  "total_components": "int",              // 总组件数量
+  "total_vulnerabilities": "int",         // 总漏洞数量
+  "severity_summary": {
+    "critical": "int",                    // 严重级别漏洞数量
+    "high": "int",                        // 高危级别漏洞数量
+    "medium": "int",                      // 中危级别漏洞数量
+    "low": "int"                          // 低危级别漏洞数量
+  },
+  "components": [
     {
-      "scan_summary": {
-        "total_python_issues": "int",         // Python脚本问题总数
-        "total_php_issues": "int",            // PHP脚本问题总数
-        "total_perl_issues": "int",           // Perl脚本问题总数
-        "total_all_issues": "int"             // 所有脚本问题总数
-      },
-      "statistics": {
-        "python": {
-          "total_issues": "int",              // Python问题总数
-          "files_affected": "int"             // 受影响文件数
-        },
-        "php": {
-          "total_issues": "int",              // PHP问题总数
-          "progpilot_issues": "int",          // Progpilot检测问题数
-          "files_affected": "int"             // 受影响文件数
-        },
-        "perl": {
-          "total_issues": "int",              // Perl问题总数
-          "files_affected": "int"             // 受影响文件数
-        }
-      },
-      "detailed_results": {
-        "s21_python_check": {
-          "total_issues": "int",              // 总问题数
-          "issues": [
-            {
-              "file_name": "string",          // 文件名
-              "line_number": "int",           // 行号
-              "column_number": "int",         // 列号
-              "error_code": "string",         // 错误代码
-              "error_message": "string",      // 错误信息
-              "severity": "string",           // 严重程度
-              "confidence": "string"          // 置信度
-            }
-          ]
-        },
-        "s22_php_check": {
-          "total_issues": "int",              // 总问题数
-          "progpilot_issues": "int",          // Progpilot检测问题数
-          "issues": [
-            {
-              "file_name": "string",          // 文件名
-              "line_number": "int",           // 行号
-              "column_number": "int",         // 列号
-              "error_code": "string",         // 错误代码
-              "error_message": "string",      // 错误信息
-              "vulnerability_type": "string", // 漏洞类型
-              "code_snippet": "string",       // 代码片段
-              "severity": "string"            // 严重程度
-            }
-          ]
-        },
-        "s27_perl_check": {
-          "total_issues": "int",              // 总问题数
-          "issues": [
-            {
-              "file_name": "string",          // 文件名
-              "line_number": "int",           // 行号
-              "error_code": "string",         // 错误代码
-              "error_message": "string",      // 错误信息
-              "code_snippet": "string",       // 代码片段
-              "severity": "string"            // 严重程度
-            }
-          ]
-        }
-      }
-    }
-    ```
-    
-    检测漏洞类型包括：
-    
-    python
-    
-    ```python
-    {
-        'B101': 'assert_used - 使用了assert语句',
-        'B102': 'exec_used - 使用了exec函数',
-        'B103': 'set_bad_file_permissions - 设置了不安全的文件权限',
-        'B104': 'hardcoded_bind_all_interfaces - 硬编码绑定所有接口',
-        'B105': 'hardcoded_password_string - 硬编码密码字符串',
-        'B106': 'hardcoded_password_funcarg - 硬编码密码函数参数',
-        'B107': 'hardcoded_password_default - 硬编码密码默认值',
-        'B108': 'hardcoded_tmp_directory - 硬编码临时目录',
-        'B109': 'password_config_option_not_marked_secret - 密码配置选项未标记为秘密',
-        'B110': 'try_except_pass - try-except块中使用了pass',
-        'B111': 'execute_with_run_as_root_equals_true - 以root权限执行',
-        'B112': 'try_except_continue - try-except块中使用了continue',
-        'B113': 'request_without_timeout - 请求没有超时设置',
-        'B201': 'flask_debug_true - Flask调试模式开启',
-        'B202': 'tarfile_unsafe_members - tarfile不安全的成员',
-        'B301': 'blacklist - 使用了不安全的pickle',
-        'B306': 'blacklist - 使用了不安全的mktemp',
-        'B307': 'blacklist - 使用了不安全的eval',
-        'B310': 'blacklist - 使用了不安全的marshal',
-        'B311': 'blacklist - 使用了不安全的random',
-        'B323': 'blacklist - 使用了不安全的unverified_context',
-        'B324': 'hashlib - 使用了hashlib',
-        'B403': 'blacklist - 使用了不安全的import',
-        'B404': 'blacklist - 使用了不安全的importlib',
-        'B501': 'request_with_no_cert_validation - 请求没有证书验证',
-        'B502': 'ssl_with_bad_version - SSL使用了错误的版本',
-        'B503': 'ssl_with_bad_defaults - SSL使用了错误的默认值',
-        'B504': 'ssl_with_no_version - SSL没有指定版本',
-        'B505': 'weak_cryptographic_key - 弱加密密钥',
-        'B506': 'yaml_load - 使用了yaml.load',
-        'B507': 'ssh_no_host_key_verification - SSH没有主机密钥验证',
-        'B508': 'snmp_insecure_version - SNMP不安全版本',
-        'B509': 'snmp_weak_cryptography - SNMP弱加密',
-        'B601': 'paramiko_calls - 使用了paramiko调用',
-        'B602': 'subprocess_popen_with_shell_equals_true - subprocess使用shell=True',
-        'B603': 'subprocess_without_shell_equals_true - subprocess没有使用shell=True',
-        'B604': 'any_other_function_with_shell_equals_true - 其他函数使用shell=True',
-        'B605': 'start_process_with_a_shell - 使用shell启动进程',
-        'B606': 'start_process_with_no_shell - 不使用shell启动进程',
-        'B607': 'start_process_with_partial_path - 使用部分路径启动进程',
-        'B608': 'hardcoded_sql_expressions - 硬编码SQL表达式',
-        'B609': 'linux_commands_wildcard_injection - Linux命令通配符注入',
-        'B610': 'django_extra_used - 使用了Django extra',
-        'B611': 'django_rawsql_used - 使用了Django raw SQL',
-        'B612': 'logging_config_insecure_listen - 日志配置不安全监听',
-        'B613': 'trojansource - 特洛伊木马源代码',
-        'B614': 'pytorch_load - 使用了PyTorch load',
-        'B615': 'huggingface_unsafe_download - HuggingFace不安全下载',
-        'B701': 'jinja2_autoescape_false - Jinja2自动转义关闭',
-        'B702': 'use_of_mako_templates - 使用了Mako模板',
-        'B703': 'django_mark_safe - Django标记为安全',
-        'B704': 'markupsafe_markup_xss - MarkupSafe标记XSS'
-    }
-    ```
-    
-    php
-    
-    ```python
-    	{
-            'CWE_78': 'OS Command Injection - 操作系统命令注入',
-            'CWE_79': 'Cross-site Scripting (XSS) - 跨站脚本攻击',
-            'CWE_89': 'SQL Injection - SQL注入',
-            'CWE_90': 'LDAP Injection - LDAP注入',
-            'CWE_91': 'XML Injection - XML注入',
-            'CWE_95': 'Code Injection - 代码注入',
-            'CWE_98': 'PHP File Inclusion - PHP文件包含',
-            'CWE_22': 'Path Traversal - 路径遍历',
-            'CWE_384': 'Session Fixation - 会话固定',
-            'CWE_601': 'URL Redirection to Untrusted Site - URL重定向到不可信站点',
-            'CWE_1333': 'Regular Expression Denial of Service (ReDoS) - 正则表达式拒绝服务'
-        }
-        
-    	{
-            'external.semgrep-rules.php.lang.security.unlink-use': 'Unsafe File Deletion - 不安全的文件删除',
-            'external.semgrep-rules.php.lang.security.unserialize-use': 'Unsafe Unserialize - 不安全的反序列化',
-            'external.semgrep-rules.php.lang.security.weak-crypto': 'Weak Cryptography - 弱加密算法'
-        }
-    ```
-    
-    perl
-    
-    ```python
-    	{
-            'Debug module enabled': 'Debug module enabled - 调试模块启用',
-            'Code Injection': 'Code Injection - 代码注入',
-            'Path Traversal': 'Path Traversal - 路径遍历',
-            'Weak Criptography Algorithm': 'Weak Criptography Algorithm - 弱加密算法',
-            'Weak Random Value Generator': 'Weak Random Value Generator - 弱随机值生成器',
-            'Error Suppression': 'Error Suppression - 错误抑制',
-            'Cross Site Scripting (XSS)': 'Cross Site Scripting (XSS) - 跨站脚本攻击',
-            'Command Injection': 'Command Injection - 命令注入',
-            'Connection String Injection': 'Connection String Injection - 连接字符串注入',
-            'LDAP Injection': 'LDAP Injection - LDAP注入',
-            'XSS': 'XSS - 跨站脚本攻击',
-            'Remote File Inclusion': 'Remote File Inclusion - 远程文件包含',
-            'Resource Injection': 'Resource Injection - 资源注入',
-            'SQL Injection': 'SQL Injection - SQL注入'
-        }
-    ```
-
-- full_scan.emba：检测二进制程序中的漏洞、识别kernel版本相关cve并进行验证、密钥识别与爆破
-
-  > [!IMPORTANT]
-  >
-  > 该模式需要在运行 emba 的时候加 -c 选项 ！！
-
-  - cwe.json
-
-    ```json
-    {
-      "scan_summary": {
-        "total_high_risk_vulnerabilities": "int",  // 高风险漏洞总数
-        "affected_binaries": "int",                // 受影响的二进制文件数
-        "vulnerability_types": {
-          "CWE code": "quantity"                   // CWE代码及数量
-        },
-        "critical_count": "int",                   // 严重漏洞数量
-        "binary_list": ["string"]                  // 二进制文件列表
-      },
-      "high_risk_vulnerabilities": [
-        {
-          "binary_file": "string",                 // 二进制文件名
-          "vulnerability_type": "string",          // 漏洞类型
-          "addresses": ["string"],                 // 内存地址列表
-          "symbols": ["string"],                   // 符号列表
-          "description": "string",                 // 漏洞描述
-          "vulnerability_description": "string"    // 漏洞详细描述
-        }
-      ]
-    }
-    ```
-
-  - kernel.json：cve 验证的方式是将存在 cve 漏洞版本的 kernel 与当前的 kernel 进行比较确认是否一致
-
-    ```json
-    {
-      "summary": {
-        "total_vulnerabilities": 0,               // 总漏洞数量
-        "verified_vulnerabilities": 0,            // 已验证的漏洞数量
-        "severity_distribution": {
-          "Critical": 0,                          // 严重漏洞数量
-          "High": 0,                              // 高危漏洞数量
-          "Medium": 0,                            // 中危漏洞数量
-          "Low": 0,                               // 低危漏洞数量
-          "Unknown": 0                            // 未知严重程度漏洞数量
-        }
-      },
-      "kernel_analysis": {
-        "kernel_version": "string",               // 内核版本
-        "kernel_modules": [
-          {
-            "path": "string",                     // 模块路径
-            "license": "string",                  // 许可证类型
-            "status": "string"                    // 模块状态
-          }
-        ],
-        "statistics": {
-          "version": "string",                    // 版本信息
-          "total_modules": "int",                 // 总模块数
-          "other_count": "int"                    // 其他模块数
-        }
+      "component_name": "string",         // 组件名称
+      "version": "string",                // 组件版本
+      "total_vulnerabilities": "int",     // 该组件总漏洞数
+      "severity_breakdown": {
+        "critical": "int",                // 严重级别数量
+        "high": "int",                    // 高危级别数量
+        "medium": "int",                  // 中危级别数量
+        "low": "int"                      // 低危级别数量
       },
       "vulnerabilities": [
         {
-          "binary_name": "string",                // 二进制名称
-          "version": "string",                    // 版本号
-          "cve_id": "string",                     // CVE编号
-          "cvss_score": "string",                 // CVSS评分
-          "severity": "string",                   // 严重程度
-          "epss": "string",                       // EPSS评分
-          "source": "string",                     // 数据来源
-          "exploit_info": "string",               // 漏洞利用信息
-          "verified": true                        // 是否已验证
+          "product": "string",            // 产品名称
+          "version": "string",            // 版本号
+      "cve_number": "string",         // CVE 编号
+          "severity": "string",           // 严重程度
+      "score": "float",               // CVSS 评分
+          "source": "string",             // 数据来源
+      "cvss_version": "string",       // CVSS 版本
+      "cvss_vector": "string",        // CVSS 向量
+          "remarks": "string"             // 备注信息
         }
       ]
     }
-    ```
-
-  - passwd.json：主要破解的密钥来自于 /etc/shadow 
-
-    ```json
-    {
-      "scan_summary": {
-        "total_key_files": "int",                // 密钥文件总数
-        "total_credentials": "int",              // 凭据总数
-        "total_passwords_found": "int",          // 发现的密码总数
-        "total_hashes_cracked": "int"            // 破解的哈希总数
-      },
-      "modules": {
-        "s106_deep_key_search": {
-          "total_files_with_keys": "int",        // 包含密钥的文件数
-          "key_files": [
-            {
-              "file_path": "string",             // 文件路径
-              "pattern": "string",               // 匹配模式
-              "content_length": "int"            // 内容长度
-            }
-          ]
-        },
-        "s108_stacs_password_search": {
-          "total_credentials": "int",            // 凭据总数
-          "credentials": [
-            {
-              "path": "string",                  // 文件路径
-              "hash": "string"                   // 密码哈希
-            }
-          ]
-        },
-        "s109_jtr_password_cracking": {
-          "total_passwords_found": "int",        // 发现的密码数
-          "total_hashes_cracked": "int",         // 破解的哈希数
-          "found_passwords": ["string"],         // 发现的密码列表
-          "cracked_passwords": ["string"]        // 破解的密码列表
-        }
-      }
-    }
-    ```
-
-| 扫描模式                            | quick_sbom | sbom_link_cve | quick_scan | full_scan |
-| ----------------------------------- | ---------- | ------------- | ---------- | --------- |
-| 组件扫描                            | √          | √             | √          | √         |
-| 许可证扫描                          | √          | √             | √          | √         |
-| 组件关联cve                         |            | √             | √          | √         |
-| 脚本漏洞检测（python / php / perl） |            |               | √          | √         |
-| 二进制程序漏洞检测                  |            |               |            | √         |
-| 内核关联cve识别与验证               |            |               |            | 可选      |
-| 密钥扫描和爆破                      |            |               |            | 可选      |
-
-- 其他输出文件：
-  - log/results/scripts.log：output 中的脚本的日志文件，运行出错的时候可以根据日志文件判断问题
-
-### 运行性能
-
-测试固件 35.66 MB 解包后 217MB，涵盖了所有测试模块，结果仅供参考，不同固件耗时不同。
-
-| 配置文件               | 配置环境 | 耗时       |
-| ---------------------- | -------- | ---------- |
-| **quick_sbom.emba**    | 2c4G     | 7min27s    |
-|                        | 4c4G     | 25min34s   |
-|                        | 8c8G     | 15min28s   |
-|                        | 16c16G   | 8min19s    |
-| **sbom_link_cve.emba** | 2c4G     | 27min57s   |
-|                        | 4c4G     | 30min03s   |
-|                        | 8c8G     | 17min52s   |
-|                        | 16c16G   | 9min31s    |
-| **quick_scan.emba**    | 2c4G     | 29min32s   |
-|                        | 4c4G     | 34min08s   |
-|                        | 8c8G     | 20min03s   |
-|                        | 16c16G   | 9min57s    |
-| **full_scan.emba**     | 2c4G     | 2h01min09s |
-|                        | 4c4G     | 57min47s   |
-|                        | 8c8G     | 29min29s   |
-|                        | 16c16G   | 12min44s   |
-
-## 配置文件
-
-可以在 scan-profiles 中添加自定义扫描模式的配置文件，以下是配置文件编写说明
-
-可选参数
-
-| 变量名                    | 含义                                                         | 示例                                                         |
-| ------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `FORMAT_LOG`              | 启用带颜色的日志格式（增强可读性）                           | `export FORMAT_LOG=0`                                        |
-| `THREADED`                | 启用多线程处理（加快扫描速度）                               | `export THREADED=1`                                          |
-| `SHORT_PATH`              | 日志中仅显示相对路径（简化输出）                             | `export SHORT_PATH=0`                                        |
-| `HTML`                    | 生成 HTML 格式报告（可视化结果）                             | `export HTML=1`                                              |
-| `SILENT`                  | 启用静默模式（减少控制台输出，仅保留关键信息）               | `export SILENT=1`                                            |
-| `DISABLE_STATUS_BAR`      | 禁用状态栏显示（`0`启用，`1`禁用）                           | `export DISABLE_STATUS_BAR=0`                                |
-| `DISABLE_NOTIFICATIONS`   | 禁用桌面通知（避免干扰）                                     | `export DISABLE_NOTIFICATIONS=1`                             |
-| `DISABLE_DOTS`            | 禁用状态点输出（状态点用于显示实时进度，禁用后简化输出）     | `export DISABLE_DOTS=1`                                      |
-| `QUICK_SCAN`              | 启用快速扫描模式（优先速度，禁用长运行模块）                 | `export QUICK_SCAN=1`                                        |
-| `SBOM_MINIMAL`            | 启用最小 SBOM 模式（减少非必要信息，加快生成速度）           | `export SBOM_MINIMAL=1`（启用）                              |
-| `SBOM_UNTRACKED_FILES`    | 控制是否包含未被包管理系统跟踪的文件： - `1`：仅包含 ELF 文件 - `2`：包含所有文件 | `export SBOM_UNTRACKED_FILES=1`                              |
-| `SBOM_MAX_FILE_LOG`       | 限制 SBOM 日志中的文件记录数量（避免冗余）                   | `export SBOM_MAX_FILE_LOG=500`（最多 500 条）                |
-| `DISABLE_DEEP`            | 禁用深度提取（加快处理，适合非 Linux 固件）                  | `export disable_DEEP=1`（禁用）                              |
-| `DEEP_EXT_DEPTH`          | 深度提取器的最大轮数（`1-4`，轮数越多提取越深入）            | `export DEEP_EXT_DEPTH=1`（1 轮）                            |
-| `SELECT_MODULES+=(...)`   | 仅启用指定模块（数组元素为模块 ID，如 "S06"），其他模块默认禁用 | `export SELECT_MODULES+=( "S06" "S08" "F15" )`               |
-| `MODULE_BLACKLIST+=(...)` | 禁用指定模块（数组元素为模块 ID），其他模块默认启用          | `export MODULE_BLACKLIST+=( "S10" "S99" )`                   |
-| `QEMULATION`              | 启用 QEMU 用户模式模拟（通过模拟识别组件版本）               | `export QEMULATION=1`（启用）                                |
-| `FULL_EMULATION`          | 启用全系统模拟（模拟整个设备运行时环境，比用户模式更深入）   | `export FULL_EMULATION=1`（启用）                            |
-| `BINARY_EXTENDED`         | 启用扩展二进制测试（分析非 Linux 二进制文件，如 Windows EXE） | `export BINARY_EXTENDED=1`（启用）                           |
-| `MAX_EXT_CHECK_BINS`      | 扩展二进制测试的最大文件数量（限制处理量，优化速度）         | `export MAX_EXT_CHECK_BINS=15`（15 个文件）                  |
-| `YARA`                    | 启用 YARA 规则扫描（识别文件中的可疑模式）                   | `export YARA=1`（启用）                                      |
-| `S08_MODULES_ARR=(...)`   | 细化 S08 模块的子模块（仅 S08 生效，指定需要启用的子模块，如包解析器） | `S08_MODULES_ARR=( "S08_submodule_debian_pkg_mgmt_parser" )` |
-| `USE_DOCKER`              | 强制在 Docker 环境中运行（避免对主机系统产生影响）           | 脚本自动设置，无需手动 export                                |
-
-以 full_scan 为例，目前所有配置文件均设置为：启用多线程、禁用带颜色的log（否则影响后续从 log 中提取信息生成 json）、禁用生成html、禁止在终端输出点（可以用来确认程序还在运行，但是一屏幕的点看着很难评）
-
-| 模块编号                     | 模块功能                                                     | 2c4g的运行时间（仅作为不同模块对比的参考）     |
-| ---------------------------- | ------------------------------------------------------------ | ---------------------------------------------- |
-| "S03" "S06" "S08" "S09"      | 基础检测                                                     | 11分9秒                                        |
-| "S21" "S22" "S27"            | 脚本漏洞检测                                                 | 5分48秒                                        |
-| "S24" "S25" "S26"            | 内核关联 cve 识别与验证（S26 模块运行时间较长，作为可选项）  | 1小时57分18秒，其中 S26 模块 1小时48分49秒     |
-| "S17"                        | 二进制程序漏洞检测，需要同时设置 `export YARA=1`             | 51秒                                           |
-| "S106"  "S107" "S108" "S109" | 检测与爆破密钥（S109 模块用于爆破密钥，一个小时没有结果自动停止，作为可选项建议禁用） | 5分钟，密钥是123，复杂密钥可能直接浪费一个小时 |
-| "F10"                        | 检测许可证                                                   | 3秒                                            |
-| "F15"                        | 生成 sbom                                                    | 22秒                                           |
-| "F17"                        | 检测组件关联 cve                                             | 3分25秒                                        |
-
-```shell
-# Need to add -c option
-
-# 可选配置
-export FORMAT_LOG=0 
-export THREADED=1  
-export SHORT_PATH=0 
-export HTML=0      
-export DISABLE_DOTS=1  
-export YARA=1   
-export SBOM_MINIMAL=0
-export DISABLE_DEEP=0  
-export VEX_METRICS=1
-export QEMULATION=1
-
-# 选择需要的模块
-export SELECT_MODULES+=( "S03" "S06" "S08" "S09" )                 # 扫描基础信息
-export SELECT_MODULES+=( "S21" "S22" "S27" )                       # 检测脚本漏洞
-export SELECT_MODULES+=( "S24" "S25" "S26" )                       # 提取内核版本，扫描内核关联cve并验证
-export SELECT_MODULES+=( "S17" )                                   # 扫描二进制程序漏洞
-export SELECT_MODULES+=( "S106"  "S107" "S108" "S109" )            # 扫描密钥并进行爆破
-export SELECT_MODULES+=( "F10" "F15" "F17" )                       # 检测许可证和组件关联cve，生成sbom
-
-# S08 模块选择的子模块（以下是全部模块，不需要的直接注释掉即可）
-export S08_MODULES_ARR=()
-S08_MODULES_ARR=( "S08_submodule_debian_pkg_mgmt_parser" )
-S08_MODULES_ARR+=( "S08_submodule_deb_package_parser" )
-S08_MODULES_ARR+=( "S08_submodule_openwrt_pkg_mgmt_parser" )
-S08_MODULES_ARR+=( "S08_submodule_openwrt_ipk_package_parser" )
-S08_MODULES_ARR+=( "S08_submodule_rpm_pkg_mgmt_parser" )
-S08_MODULES_ARR+=( "S08_submodule_rpm_package_parser" )
-S08_MODULES_ARR+=( "S08_submodule_bsd_package_parser" )
-S08_MODULES_ARR+=( "S08_submodule_python_pip_package_mgmt_parser" )
-S08_MODULES_ARR+=( "S08_submodule_python_requirements_parser" )
-S08_MODULES_ARR+=( "S08_submodule_python_poetry_lock_parser" )
-S08_MODULES_ARR+=( "S08_submodule_java_archives_parser" )
-# S08_MODULES_ARR+=( "S08_submodule_ruby_gem_archive_parser" )
-# S08_MODULES_ARR+=( "S08_submodule_alpine_apk_package_parser" )
-S08_MODULES_ARR+=( "S08_submodule_windows_exifparser" )
-S08_MODULES_ARR+=( "S08_submodule_rust_cargo_lock_parser" )
-S08_MODULES_ARR+=( "S08_submodule_node_js_package_lock_parser" )
-S08_MODULES_ARR+=( "S08_submodule_c_conanfile_txt_parser" )
-S08_MODULES_ARR+=( "S08_submodule_perl_cpan_parser" )
-S08_MODULES_ARR+=( "S08_submodule_php_composer_lock" )
-S08_MODULES_ARR+=( "S08_submodule_python_pipfile_lock" )
-# S08_MODULES_ARR+=( "S08_submodule_apk_pkg_mgmt_parser" )
-
-# 自动启用 docker，这段不需要动
-if [[ $IN_DOCKER -ne 1 ]] ; then
-  print_output "$(indent "$(orange "Adds ANSI color codes to log")")" "no_log"
-  print_output "$(indent "$(orange "Activate multi threading")")" "no_log"
-  print_output "$(indent "$(orange "Prints only relative paths")")" "no_log"
-  print_output "$(indent "$(orange "Activates web report creation in log path")")" "no_log"
-  if [[ "$USE_DOCKER" -ne 1 ]]; then
-    print_output "$(indent "$(orange "Enables automated qemu emulation tests (WARNING this module could harm your host!)")")" "no_log"
-  else
-    print_output "$(indent "$(orange "Enables automated qemu emulation tests")")" "no_log"
-  fi
-  print_output "$(indent "$(orange "Runs EMBA in docker container")")" "no_log"
-  print_output "$(indent "$(orange "Enabled EMBA module via profile")")" "no_log"
-  for MODULE_ in "${SELECT_MODULES[@]}"; do
-    print_output "$(indent "$(orange "Enabled module: $MODULE_")")" "no_log"
-  done
-  export USE_DOCKER=1
-fi
+  ]
+}
 ```
+
+### 🐍 scripts_vul.json 格式
+```json
+{
+  "scan_summary": {
+"total_python_issues": "int",         // Python 脚本问题总数
+"total_php_issues": "int",            // PHP 脚本问题总数
+"total_perl_issues": "int",           // Perl 脚本问题总数
+    "total_all_issues": "int"             // 所有脚本问题总数
+  },
+  "statistics": {
+    "python": {
+  "total_issues": "int",              // Python 问题总数
+      "files_affected": "int"             // 受影响文件数
+    },
+    "php": {
+  "total_issues": "int",              // PHP 问题总数
+  "progpilot_issues": "int",          // Progpilot 检测问题数
+      "files_affected": "int"             // 受影响文件数
+    },
+    "perl": {
+  "total_issues": "int",              // Perl 问题总数
+      "files_affected": "int"             // 受影响文件数
+    }
+  },
+  "detailed_results": {
+    "s21_python_check": {
+      "total_issues": "int",              // 总问题数
+      "issues": [
+        {
+          "file_name": "string",          // 文件名
+          "line_number": "int",           // 行号
+          "column_number": "int",         // 列号
+          "error_code": "string",         // 错误代码
+          "error_message": "string",      // 错误信息
+          "severity": "string",           // 严重程度
+          "confidence": "string"          // 置信度
+        }
+      ]
+    },
+    "s22_php_check": {
+      "total_issues": "int",              // 总问题数
+  "progpilot_issues": "int",          // Progpilot 检测问题数
+      "issues": [
+        {
+          "file_name": "string",          // 文件名
+          "line_number": "int",           // 行号
+          "column_number": "int",         // 列号
+          "error_code": "string",         // 错误代码
+          "error_message": "string",      // 错误信息
+          "vulnerability_type": "string", // 漏洞类型
+          "code_snippet": "string",       // 代码片段
+          "severity": "string"            // 严重程度
+        }
+      ]
+    },
+    "s27_perl_check": {
+      "total_issues": "int",              // 总问题数
+      "issues": [
+        {
+          "file_name": "string",          // 文件名
+          "line_number": "int",           // 行号
+          "error_code": "string",         // 错误代码
+          "error_message": "string",      // 错误信息
+          "code_snippet": "string",       // 代码片段
+          "severity": "string"            // 严重程度
+        }
+      ]
+    }
+  }
+}
+```
+
+### 🔍 cwe.json 格式
+```json
+{
+  "scan_summary": {
+    "total_high_risk_vulnerabilities": "int",  // 高风险漏洞总数
+    "affected_binaries": "int",                // 受影响的二进制文件数
+    "vulnerability_types": {
+  "CWE code": "quantity"                   // CWE 代码及数量
+    },
+    "critical_count": "int",                   // 严重漏洞数量
+    "binary_list": ["string"]                  // 二进制文件列表
+  },
+  "high_risk_vulnerabilities": [
+    {
+      "binary_file": "string",                 // 二进制文件名
+      "vulnerability_type": "string",          // 漏洞类型
+      "addresses": ["string"],                 // 内存地址列表
+      "symbols": ["string"],                   // 符号列表
+      "description": "string",                 // 漏洞描述
+      "vulnerability_description": "string"    // 漏洞详细描述
+    }
+  ]
+}
+```
+
+### 🔍 kernel.json 格式
+```json
+{
+  "summary": {
+    "total_vulnerabilities": 0,               // 总漏洞数量（s25 + s26 的总和）
+    "verified_vulnerabilities": 0,            // 已验证的漏洞数量（仅来自 s26）
+    "severity_distribution": {
+      "Critical": 0,                          // 严重漏洞数量（仅来自 s26）
+      "High": 0,                              // 高危漏洞数量（仅来自 s26）
+      "Medium": 0,                            // 中危漏洞数量（仅来自 s26）
+      "Low": 0,                               // 低危漏洞数量（仅来自 s26）
+      "Unknown": 0                            // 未知严重程度漏洞数量（仅来自 s26）
+    }
+  },
+  "kernel_analysis": {
+    "kernel_version": "string",               // 内核版本（来自 s25）
+    "kernel_modules": [
+      {
+        "path": "string",                     // 模块路径
+        "license": "string",                  // 许可证类型
+        "status": "string"                    // 模块状态
+      }
+    ],
+    "statistics": {
+      "version": "string",                    // 版本信息
+      "total_modules": "int",                 // 总模块数
+      "other_count": "int"                    // 其他模块数
+    }
+  },
+  "s25_vulnerabilities": [
+    {
+      "cve_id": "string",                     // CVE 编号
+      "description": "string",                // 漏洞描述
+      "exposure": "string",                   // 暴露程度（probable/less probable/Unknown）
+      "exploit_db": "string"                  // Exploit-DB 编号
+    }
+  ],
+  "s26_vulnerabilities": [
+    {
+      "binary_name": "string",                // 二进制名称
+      "version": "string",                    // 版本号
+      "cve_id": "string",                     // CVE 编号
+      "cvss_score": "string",                 // CVSS 评分
+      "severity": "string",                   // 严重程度（Critical/High/Medium/Low/Unknown）
+      "source": "string",                     // 数据来源
+      "exploit_info": "string",               // 漏洞利用信息
+      "verified": true/false                  // 是否已验证
+    }
+  ]
+}
+```
+
+### 🔐 passwd.json 格式
+```json
+{
+  "scan_summary": {
+    "total_key_files": "int",                // 密钥文件总数
+    "total_credentials": "int",              // 凭据总数
+    "total_passwords_found": "int",          // 发现的密码总数
+    "total_hashes_cracked": "int"            // 破解的哈希总数
+  },
+  "modules": {
+    "s106_deep_key_search": {
+      "total_files_with_keys": "int",        // 包含密钥的文件数
+      "key_files": [
+        {
+          "file_path": "string",             // 文件路径
+          "pattern": "string",               // 匹配模式
+          "content_length": "int"            // 内容长度
+        }
+      ]
+    },
+    "s108_stacs_password_search": {
+      "total_credentials": "int",            // 凭据总数
+      "credentials": [
+        {
+          "path": "string",                  // 文件路径
+          "hash": "string"                   // 密码哈希
+        }
+      ]
+    },
+    "s109_jtr_password_cracking": {
+      "total_passwords_found": "int",        // 发现的密码数
+      "total_hashes_cracked": "int",         // 破解的哈希数
+      "found_passwords": ["string"],         // 发现的密码列表
+      "cracked_passwords": ["string"]        // 破解的密码列表
+    }
+  }
+}
+```
+
+## 🐛 故障排除
+
+### 📋 常见问题
+
+1. **安装过程中断**：即使安装过程报错退出，配置文件中的模块仍可正常运行
+2. **Docker 构建失败**：检查 Docker 和 Docker Compose 是否正确安装
+3. **权限问题**：确保有足够的权限创建目录和运行脚本
+
+### 📝 日志文件
+
+- `log/results/scripts.log`：output 脚本的详细日志文件，可用于故障诊断
